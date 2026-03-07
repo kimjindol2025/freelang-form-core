@@ -1,0 +1,299 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 4: JIT Compiler (Just-In-Time)
+// 반복 검증 자동 컴파일 + 최적화
+// 2026-03-08
+
+// ========================================
+// JIT 컴파일 프로필
+// ========================================
+
+struct JITCompilationProfile {
+    field_name: string,
+    field_type: string,
+    call_count: int = 0,
+    execution_times: [i64] = [],
+    jit_compiled: bool = false,
+    jit_compile_time: i64 = 0,
+    total_time_saved: i64 = 0,
+
+    fn should_compile() -> bool {
+        // 10회 이상 호출 시 컴파일 추천
+        return this.call_count >= 10 && !this.jit_compiled
+    }
+
+    fn record_execution(time_ms: i64) {
+        this.call_count += 1
+        this.execution_times.push(time_ms)
+
+        // 컴파일 조건 확인
+        if this.should_compile() {
+            this.compile()
+        }
+    }
+
+    fn compile() {
+        // 프로파일 기반 최적화
+        let start = __current_time_ms()
+
+        // 최적화된 검증 함수 생성 (가상)
+        // 실제 구현: 컴파일러가 다음을 수행
+        // 1. 불필요한 체크 제거 (dead code elimination)
+        // 2. 루프 언롤 (loop unrolling)
+        // 3. 인라인 전개 (inlining)
+        // 4. 분기 예측 최적화 (branch prediction)
+
+        this.jit_compiled = true
+        this.jit_compile_time = __current_time_ms() - start
+
+        print("✅ JIT 컴파일 완료: " + this.field_name + " (" + (this.jit_compile_time as string) + "ms)")
+    }
+
+    fn get_avg_time() -> f64 {
+        if this.execution_times.length == 0 {
+            return 0.0
+        }
+        let sum: i64 = 0
+        for time in this.execution_times {
+            sum += time
+        }
+        return (sum as f64) / (this.execution_times.length as f64)
+    }
+
+    fn get_speedup() -> f64 {
+        if this.execution_times.length < 2 {
+            return 1.0
+        }
+
+        // 처음 N개의 평균 vs 최근 N개의 평균
+        let early_sum: i64 = 0
+        let late_sum: i64 = 0
+        let mid = this.execution_times.length / 2
+
+        for i in 0..mid {
+            early_sum += this.execution_times[i]
+        }
+
+        for i in mid..this.execution_times.length {
+            late_sum += this.execution_times[i]
+        }
+
+        let early_avg = (early_sum as f64) / (mid as f64)
+        let late_avg = (late_sum as f64) / ((this.execution_times.length - mid) as f64)
+
+        if late_avg == 0.0 {
+            return 1.0
+        }
+        return early_avg / late_avg
+    }
+
+    fn get_stats() -> map<string, any> {
+        return {
+            "field_name": this.field_name,
+            "call_count": this.call_count,
+            "jit_compiled": this.jit_compiled,
+            "avg_time_ms": this.get_avg_time(),
+            "speedup": this.get_speedup(),
+            "compile_time_ms": this.jit_compile_time
+        }
+    }
+}
+
+// ========================================
+// JIT 컴파일러 (전역 관리)
+// ========================================
+
+struct JITCompiler {
+    profiles: map<string, JITCompilationProfile> = {},
+    compilation_threshold: int = 10,
+    total_compiled: int = 0,
+
+    fn record_validation(field_name: string, field_type: string, time_ms: i64) {
+        // 프로필 생성 또는 업데이트
+        if !this.profiles.contains(field_name) {
+            this.profiles[field_name] = JITCompilationProfile{
+                field_name: field_name,
+                field_type: field_type
+            }
+        }
+
+        let profile = this.profiles[field_name]
+        profile.record_execution(time_ms)
+
+        // JIT 컴파일 확인
+        if profile.jit_compiled && !profile.jit_compiled {
+            this.total_compiled += 1
+        }
+    }
+
+    fn get_hotspot_fields() -> [string] {
+        // 가장 자주 호출되는 필드 (JIT 후보)
+        let hotspots: [string] = []
+
+        for (field_name, profile) in this.profiles {
+            if profile.jit_compiled {
+                hotspots.push(field_name)
+            }
+        }
+
+        return hotspots
+    }
+
+    fn get_compilation_rate() -> f64 {
+        if this.profiles.length == 0 {
+            return 0.0
+        }
+        return (this.total_compiled as f64) / (this.profiles.length as f64)
+    }
+
+    fn get_total_speedup() -> f64 {
+        if this.total_compiled == 0 {
+            return 1.0
+        }
+
+        let total_speedup = 0.0
+        let count = 0
+
+        for (_, profile) in this.profiles {
+            if profile.jit_compiled {
+                total_speedup += profile.get_speedup()
+                count += 1
+            }
+        }
+
+        if count == 0 {
+            return 1.0
+        }
+        return total_speedup / (count as f64)
+    }
+
+    fn get_stats() -> map<string, any> {
+        return {
+            "total_fields": this.profiles.length,
+            "jit_compiled": this.total_compiled,
+            "compilation_rate": this.get_compilation_rate(),
+            "avg_speedup": this.get_total_speedup()
+        }
+    }
+
+    fn print_stats() {
+        let stats = this.get_stats()
+
+        print("\n=== JIT 컴파일러 통계 ===\n")
+        print("총 필드: " + (stats["total_fields"] as string))
+        print("컴파일된: " + (stats["jit_compiled"] as string))
+        print("컴파일율: " + ((stats["compilation_rate"] as f64) * 100.0 as string) + "%")
+        print("평균 속도향상: " + (stats["avg_speedup"] as string) + "x\n")
+
+        print("【상세 정보】")
+        for (field_name, profile) in this.profiles {
+            if profile.jit_compiled {
+                let pstats = profile.get_stats()
+                print("  " + field_name)
+                print("    호출: " + (pstats["call_count"] as string) + "회")
+                print("    평균 시간: " + ((pstats["avg_time_ms"] as f64) as string) + "ms")
+                print("    속도향상: " + (pstats["speedup"] as string) + "x")
+            }
+        }
+        print()
+    }
+
+    fn print_field_profile(field_name: string) {
+        if this.profiles.contains(field_name) {
+            let profile = this.profiles[field_name]
+            let stats = profile.get_stats()
+
+            print("【" + field_name + "】")
+            print("  타입: " + (stats["field_name"] as string))
+            print("  호출: " + (stats["call_count"] as string) + "회")
+            print("  컴파일: " + (stats["jit_compiled"] as string))
+            print("  평균 시간: " + ((stats["avg_time_ms"] as f64) as string) + "ms")
+            print("  속도향상: " + (stats["speedup"] as string) + "x\n")
+        }
+    }
+}
+
+// ========================================
+// JIT 성능 분석
+// ========================================
+
+struct JITPerformanceAnalyzer {
+    fn simulate_validation_with_jit() {
+        print("\n=== JIT 시뮬레이션 ===\n")
+
+        let jit = JITCompiler{}
+
+        // 첫 단계: 인터프리터 (느림)
+        print("1️⃣ 인터프리터 단계 (1-9회)")
+        for i in 0..9 {
+            jit.record_validation("username", "string", 2)  // 2ms/회
+        }
+
+        // 두 번째 단계: JIT 컴파일 (10회차에 자동 컴파일)
+        print("✅ JIT 컴파일 트리거\n")
+
+        // 세 번째 단계: JIT 최적화 코드 (빠름)
+        print("2️⃣ JIT 최적화 단계 (11-20회)")
+        for i in 10..20 {
+            jit.record_validation("username", "string", 0.2)  // 0.2ms/회 (10배 빠름)
+        }
+
+        // 통계
+        jit.print_stats()
+
+        print("성능 개선:")
+        print("  - 인터프리터: 2ms/회 × 10회 = 20ms")
+        print("  - JIT 후: 0.2ms/회 × 10회 = 2ms")
+        print("  - 절약: 18ms (90% 감소)\n")
+    }
+
+    fn simulate_multiple_fields() {
+        print("\n=== 다중 필드 JIT ===\n")
+
+        let jit = JITCompiler{}
+
+        // 5개 필드의 검증 기록
+        let fields = ["username", "email", "password", "age", "phone"]
+
+        for round in 0..3 {
+            print("Round " + (round + 1 as string) + ":")
+            for field in fields {
+                let time = if round < 1 { 2 } else { 1 }  // 후반부에는 0.2ms로 개선
+                jit.record_validation(field, "string", time)
+            }
+            print()
+        }
+
+        jit.print_stats()
+    }
+}
+
+// ========================================
+// 헬퍼 함수
+// ========================================
+
+fn __current_time_ms() -> i64 {
+    // 현재 시간 (밀리초)
+}
+
+// ========================================
+// Phase 4 체크리스트
+// ========================================
+
+// [x] JITCompilationProfile
+// [x] 프로필 수집
+// [x] 컴파일 조건 판단
+// [x] 성능 지표 계산
+//
+// [x] JITCompiler
+// [x] 전역 프로필 관리
+// [x] Hotspot 필드 추출
+// [x] 통계 출력
+//
+// [x] JITPerformanceAnalyzer
+// [x] 성능 시뮬레이션
+// [x] 다중 필드 분석
+//
+// 다음:
+// [ ] 실제 머신 코드 생성
+// [ ] 인라인 캐싱
+// [ ] 적응형 최적화

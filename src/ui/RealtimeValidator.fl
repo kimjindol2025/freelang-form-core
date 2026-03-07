@@ -1,0 +1,302 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 3: Realtime Validator
+// 입력 중 실시간 검증 + 피드백
+// 2026-03-08
+
+// ========================================
+// 디바운스 관리자
+// ========================================
+
+struct DebounceManager {
+    timers: map<string, any> = {},  // field → timer ID
+    delay_ms: int = 300,             // 300ms 디바운스
+
+    fn debounce(field_name: string, callback: fn()) {
+        // 이전 타이머 취소
+        if this.timers.contains(field_name) {
+            let old_timer = this.timers[field_name]
+            __cancel_timer(old_timer)
+        }
+
+        // 새 타이머 설정
+        let new_timer = __set_timeout(callback, this.delay_ms)
+        this.timers[field_name] = new_timer
+    }
+
+    fn clear_timer(field_name: string) {
+        if this.timers.contains(field_name) {
+            let timer = this.timers[field_name]
+            __cancel_timer(timer)
+            this.timers.delete(field_name)
+        }
+    }
+}
+
+// ========================================
+// 실시간 폼 검증기
+// ========================================
+
+struct RealtimeFormValidator {
+    form: any,
+    debounce: DebounceManager,
+    field_states: map<string, FieldValidationState> = {},
+
+    fn __init__() {
+        this.debounce = DebounceManager{ delay_ms: 300 }
+    }
+
+    async fn on_field_change(field_name: string, value: any) {
+        // 1. 값 업데이트
+        this.form.set_value(field_name, value)
+        this.form.mark_dirty(field_name)
+
+        // 2. 유효성 상태: 검증 중
+        this.set_field_state(field_name, {
+            status: "validating",
+            value: value,
+            error: null
+        })
+
+        // 3. 디바운스: 300ms 후 검증
+        this.debounce.debounce(field_name, async fn() {
+            // 4. 검증 실행
+            let result = await this.form.validate_field_async(field_name)
+
+            // 5. 상태 업데이트
+            if result.is_valid {
+                this.set_field_state(field_name, {
+                    status: "success",
+                    value: value,
+                    error: null
+                })
+                show_success(field_name)
+            } else {
+                this.set_field_state(field_name, {
+                    status: "error",
+                    value: value,
+                    error: result.errors[0]
+                })
+                show_error(field_name, result.errors[0])
+            }
+        })
+    }
+
+    fn set_field_state(field_name: string, state: FieldValidationState) {
+        this.field_states[field_name] = state
+    }
+
+    fn get_field_state(field_name: string) -> FieldValidationState? {
+        if this.field_states.contains(field_name) {
+            return this.field_states[field_name]
+        }
+        return null
+    }
+
+    fn is_field_valid(field_name: string) -> bool {
+        let state = this.get_field_state(field_name)
+        return state != null && state.status == "success"
+    }
+
+    fn is_form_valid() -> bool {
+        // 모든 필드가 성공 상태인가?
+        for (_, state) in this.field_states {
+            if state.status != "success" {
+                return false
+            }
+        }
+        return true
+    }
+}
+
+struct FieldValidationState {
+    status: string,         // "validating", "success", "error", "pending"
+    value: any,
+    error: ValidationError?
+}
+
+// ========================================
+// UI 피드백 함수
+// ========================================
+
+fn show_loading(field_name: string) {
+    // 필드에 로딩 상태 표시
+    let element = __get_element("." + field_name)
+    element.classList.add("validating")
+
+    // 로딩 스피너 표시
+    let spinner = __create_element("span", "loading-spinner")
+    element.appendChild(spinner)
+}
+
+fn show_error(field_name: string, error: ValidationError) {
+    // 필드에 에러 표시
+    let element = __get_element("." + field_name)
+    element.classList.remove("validating", "success")
+    element.classList.add("error")
+
+    // 에러 메시지 표시
+    let error_span = element.querySelector(".error-message")
+    if error_span != null {
+        error_span.textContent = error.message
+        error_span.classList.add("show")  // 애니메이션 트리거
+    }
+}
+
+fn show_success(field_name: string) {
+    // 필드에 성공 표시
+    let element = __get_element("." + field_name)
+    element.classList.remove("validating", "error")
+    element.classList.add("success")
+
+    // 성공 메시지 표시
+    let success_span = element.querySelector(".success-message")
+    if success_span != null {
+        success_span.textContent = "✓"
+        success_span.classList.add("show")  // 애니메이션 트리거
+    }
+}
+
+fn clear_field_feedback(field_name: string) {
+    // 모든 피드백 제거
+    let element = __get_element("." + field_name)
+    element.classList.remove("validating", "error", "success")
+
+    let error_span = element.querySelector(".error-message")
+    if error_span != null {
+        error_span.classList.remove("show")
+    }
+
+    let success_span = element.querySelector(".success-message")
+    if success_span != null {
+        success_span.classList.remove("show")
+    }
+}
+
+// ========================================
+// 폼 제출 처리
+// ========================================
+
+struct RealtimeFormSubmission {
+    form: FormStruct,
+    validator: RealtimeFormValidator,
+
+    async fn on_submit() -> bool {
+        // 1. 모든 필드 검증
+        let result = await this.form.validate()
+
+        // 2. 유효성 확인
+        if !result.is_valid {
+            // 에러가 있는 필드 강조
+            for error in result.errors {
+                show_error(error.field, error)
+            }
+            return false
+        }
+
+        // 3. 제출 성공
+        show_form_success()
+        return true
+    }
+}
+
+fn show_form_success() {
+    // 폼 전체 성공 메시지
+    let form_element = __get_element(".direct-bind-form")
+    form_element.classList.add("submitted")
+
+    let success_msg = __create_element("div", "form-success-message")
+    success_msg.textContent = "✅ 성공적으로 제출되었습니다"
+    form_element.appendChild(success_msg)
+}
+
+// ========================================
+// 성능 최적화
+// ========================================
+
+struct ValidationCache {
+    cache: map<string, CachedValidation> = {},
+    ttl_ms: int = 5000,  // 5초 캐시
+
+    fn get(key: string) -> ValidationResult? {
+        if !this.cache.contains(key) {
+            return null
+        }
+
+        let cached = this.cache[key]
+        let now = __current_time_ms()
+
+        // 캐시 만료 확인
+        if (now - cached.timestamp) > this.ttl_ms {
+            this.cache.delete(key)
+            return null
+        }
+
+        return cached.result
+    }
+
+    fn set(key: string, result: ValidationResult) {
+        this.cache[key] = CachedValidation{
+            result: result,
+            timestamp: __current_time_ms()
+        }
+    }
+
+    fn clear() {
+        this.cache = {}
+    }
+}
+
+struct CachedValidation {
+    result: ValidationResult,
+    timestamp: i64
+}
+
+// ========================================
+// 헬퍼 함수
+// ========================================
+
+fn __get_element(selector: string) -> any {
+    // DOM 요소 조회
+}
+
+fn __create_element(tag: string, class_name: string) -> any {
+    // DOM 요소 생성
+}
+
+fn __set_timeout(callback: fn(), delay_ms: int) -> any {
+    // 타이머 설정
+}
+
+fn __cancel_timer(timer: any) {
+    // 타이머 취소
+}
+
+fn __current_time_ms() -> i64 {
+    // 현재 시간 (밀리초)
+}
+
+// ========================================
+// Phase 3 체크리스트
+// ========================================
+
+// [ ] DebounceManager
+// [x] 타이머 관리
+// [ ] 취소 로직
+//
+// [ ] RealtimeFormValidator
+// [x] 필드별 상태 추적
+// [ ] 디바운스 통합
+// [x] 폼 검증 여부 판단
+//
+// [ ] UI 피드백
+// [x] show_loading, show_error, show_success
+// [ ] 애니메이션 트리거
+// [ ] 상태 정리
+//
+// [ ] 폼 제출
+// [x] on_submit 핸들러
+// [ ] 성공 메시지 표시
+//
+// [ ] 성능
+// [x] ValidationCache 구조
+// [ ] TTL 관리

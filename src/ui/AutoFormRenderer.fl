@@ -1,0 +1,281 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 3: Auto Form Renderer
+// 필드 타입에 따라 자동 UI 생성
+// 2026-03-08
+
+// ========================================
+// 필드 타입 감지
+// ========================================
+
+struct FieldTypeDetector {
+    fn detect_input_type(field_metadata: FieldMetadata) -> string {
+        // 타입 + 어노테이션 기반 입력 타입 결정
+        match field_metadata.type {
+            "string" => {
+                // string 타입 세분화
+                for constraint in field_metadata.constraints {
+                    match constraint.type {
+                        "email" => { return "email" }
+                        "match" => {
+                            // 정규식 패턴으로 타입 판별
+                            let pattern = constraint.value as string
+                            if pattern.contains("password") || pattern.contains("[A-Z0-9]") {
+                                return "password"
+                            } else if pattern.contains("phone") || pattern.contains("[0-9]") {
+                                return "tel"
+                            } else if pattern.contains("http") {
+                                return "url"
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                // 기본값: text
+                return "text"
+            }
+            "int" => {
+                // int 타입 세분화
+                for constraint in field_metadata.constraints {
+                    if constraint.type == "range" {
+                        // @range → slider
+                        return "range"
+                    }
+                }
+                return "number"
+            }
+            "bool" => {
+                return "checkbox"
+            }
+            _ => {
+                return "text"
+            }
+        }
+    }
+
+    fn detect_min_max(field_metadata: FieldMetadata) -> map<string, any> {
+        let attrs: map<string, any> = {}
+
+        for constraint in field_metadata.constraints {
+            match constraint.type {
+                "min" => {
+                    if field_metadata.type == "string" {
+                        attrs["minlength"] = constraint.value
+                    } else if field_metadata.type == "int" {
+                        attrs["min"] = constraint.value
+                    }
+                }
+                "max" => {
+                    if field_metadata.type == "string" {
+                        attrs["maxlength"] = constraint.value
+                    } else if field_metadata.type == "int" {
+                        attrs["max"] = constraint.value
+                    }
+                }
+                "range" => {
+                    // [min, max] 파싱
+                    attrs["min"] = 0
+                    attrs["max"] = 100
+                }
+                _ => {}
+            }
+        }
+
+        return attrs
+    }
+
+    fn is_required(field_metadata: FieldMetadata) -> bool {
+        for constraint in field_metadata.constraints {
+            if constraint.type == "required" {
+                return true
+            }
+        }
+        return false
+    }
+}
+
+// ========================================
+// 자동 UI 생성기
+// ========================================
+
+struct AutoUIGenerator {
+    detector: FieldTypeDetector,
+    locale: string = "ko",
+
+    fn generate_field(field_metadata: FieldMetadata) -> string {
+        let input_type = this.detector.detect_input_type(field_metadata)
+        let attrs = this.detector.detect_min_max(field_metadata)
+        let is_required = this.detector.is_required(field_metadata)
+
+        // 필드 컨테이너
+        let html = "<div class=\"form-field\">\n"
+
+        // 라벨
+        html += "  <label for=\"" + field_metadata.name + "\">"
+        html += field_metadata.name
+        if is_required {
+            html += " <span class=\"required\">*</span>"
+        }
+        html += "</label>\n"
+
+        // 입력 필드
+        html += "  <input"
+        html += " type=\"" + input_type + "\""
+        html += " id=\"" + field_metadata.name + "\""
+        html += " name=\"" + field_metadata.name + "\""
+        html += " placeholder=\"" + this.generate_placeholder(field_metadata) + "\""
+        html += " class=\"form-input\""
+
+        // 속성 추가
+        if attrs.contains("minlength") {
+            html += " minlength=\"" + (attrs["minlength"] as string) + "\""
+        }
+        if attrs.contains("maxlength") {
+            html += " maxlength=\"" + (attrs["maxlength"] as string) + "\""
+        }
+        if attrs.contains("min") {
+            html += " min=\"" + (attrs["min"] as string) + "\""
+        }
+        if attrs.contains("max") {
+            html += " max=\"" + (attrs["max"] as string) + "\""
+        }
+        if is_required {
+            html += " required"
+        }
+
+        html += " />\n"
+
+        // 에러/성공 메시지 영역
+        html += "  <span class=\"error-message\"></span>\n"
+        html += "  <span class=\"success-message\"></span>\n"
+
+        html += "</div>"
+        return html
+    }
+
+    fn generate_placeholder(field_metadata: FieldMetadata) -> string {
+        // 어노테이션 기반 placeholder 생성
+        let placeholder = field_metadata.name
+
+        for constraint in field_metadata.constraints {
+            match constraint.type {
+                "min" => {
+                    if field_metadata.type == "string" {
+                        placeholder = "최소 " + (constraint.value as string) + "자"
+                    }
+                }
+                "email" => {
+                    placeholder = "example@domain.com"
+                }
+                "match" => {
+                    let pattern = constraint.value as string
+                    if pattern.contains("phone") {
+                        placeholder = "010-1234-5678"
+                    } else if pattern.contains("http") {
+                        placeholder = "https://example.com"
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        return placeholder
+    }
+
+    fn generate_form(fields: [FieldMetadata]) -> string {
+        let html = "<form class=\"direct-bind-form auto-generated\">\n"
+
+        for field in fields {
+            html += this.generate_field(field) + "\n"
+        }
+
+        // 제출 버튼
+        html += "  <button type=\"submit\" class=\"form-submit\">제출</button>\n"
+
+        // 전체 에러 영역
+        html += "  <div class=\"form-errors\" role=\"alert\"></div>\n"
+
+        html += "</form>"
+        return html
+    }
+}
+
+// ========================================
+// 자동 폼 빌더 (API)
+// ========================================
+
+struct AutoFormBuilder {
+    form: any,
+    fields: [FieldMetadata] = [],
+    on_submit: fn()?,
+    locale: string = "ko",
+
+    fn build() -> MossFormComponent {
+        let detector = FieldTypeDetector{}
+        let generator = AutoUIGenerator{ detector: detector, locale: this.locale }
+
+        // 메타데이터 수집
+        let all_metadata = (this.form as FormStruct).get_all_metadata()
+
+        // HTML 생성
+        let html = generator.generate_form(all_metadata)
+
+        // MossFormComponent로 변환
+        let form_ui = MossFormComponent{
+            form: this.form,
+            form_name: "auto_form_" + (rand() as string),
+            fields: [], // Phase 3: 동적으로 필드 객체 생성
+            submit_button: MossButtonComponent{ label: "제출" },
+            error_display: MossErrorDisplay{}
+        }
+
+        return form_ui
+    }
+
+    fn set_locale(locale: string) -> AutoFormBuilder {
+        this.locale = locale
+        return this
+    }
+
+    fn on_submit_handler(handler: fn()) -> AutoFormBuilder {
+        this.on_submit = handler
+        return this
+    }
+}
+
+// ========================================
+// 헬퍼 함수
+// ========================================
+
+fn auto_form(bind: any) -> AutoFormBuilder {
+    return AutoFormBuilder{ form: bind }
+}
+
+fn detect_field_type(field: FieldMetadata) -> string {
+    let detector = FieldTypeDetector{}
+    return detector.detect_input_type(field)
+}
+
+fn generate_form_html(fields: [FieldMetadata], locale: string = "ko") -> string {
+    let detector = FieldTypeDetector{}
+    let generator = AutoUIGenerator{ detector: detector, locale: locale }
+    return generator.generate_form(fields)
+}
+
+// ========================================
+// Phase 3 체크리스트
+// ========================================
+
+// [ ] FieldTypeDetector 완성
+// [x] 기본 타입 감지
+// [ ] 복잡한 패턴 분석
+// [ ] 커스텀 타입 지원
+//
+// [ ] AutoUIGenerator 완성
+// [x] HTML 생성
+// [ ] 속성 매핑
+// [ ] placeholder 자동화
+//
+// [ ] AutoFormBuilder 통합
+// [x] 기본 구조
+// [ ] 메타데이터 통합
+// [ ] 사용자 콜백

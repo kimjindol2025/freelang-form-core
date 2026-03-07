@@ -1,0 +1,418 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 3: Form Styles
+// 반응형 + 접근성 고려한 기본 스타일
+// 2026-03-08
+
+fn get_form_base_styles() -> string {
+    return `
+    /* ========================================
+       Phase 3: Base Form Styles
+       ======================================== */
+
+    * {
+        box-sizing: border-box;
+    }
+
+    .direct-bind-form {
+        max-width: 500px;
+        margin: 30px auto;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: #2c3e50;
+    }
+
+    /* ========================================
+       Form Container
+       ======================================== */
+
+    .form-container {
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    /* ========================================
+       Form Field (기본 레이아웃)
+       ======================================== */
+
+    .form-field {
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    .form-field:last-child {
+        margin-bottom: 30px;
+    }
+
+    /* ========================================
+       Label
+       ======================================== */
+
+    .form-field label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        font-size: 14px;
+        color: #2c3e50;
+    }
+
+    .form-field label .required {
+        color: #e74c3c;
+        margin-left: 4px;
+    }
+
+    /* ========================================
+       Input / Textarea
+       ======================================== */
+
+    .form-input,
+    .form-textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        font-size: 14px;
+        font-family: inherit;
+        transition: all 0.3s ease;
+        background-color: white;
+    }
+
+    .form-input:focus,
+    .form-textarea:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+    }
+
+    .form-input:disabled,
+    .form-textarea:disabled {
+        background-color: #ecf0f1;
+        color: #95a5a6;
+        cursor: not-allowed;
+    }
+
+    .form-textarea {
+        resize: vertical;
+        min-height: 120px;
+        font-size: 13px;
+    }
+
+    /* ========================================
+       Select / Checkbox / Radio
+       ======================================== */
+
+    .form-select {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        font-size: 14px;
+        background-color: white;
+        cursor: pointer;
+    }
+
+    .form-checkbox,
+    .form-radio {
+        margin-right: 8px;
+        cursor: pointer;
+    }
+
+    .form-checkbox + label,
+    .form-radio + label {
+        display: inline;
+        margin: 0;
+        font-weight: normal;
+        color: #2c3e50;
+    }
+
+    /* ========================================
+       Help Text (옵션)
+       ======================================== */
+
+    .form-help {
+        font-size: 12px;
+        color: #7f8c8d;
+        margin-top: 5px;
+    }
+
+    /* ========================================
+       Submit Button
+       ======================================== */
+
+    .form-submit {
+        width: 100%;
+        padding: 12px 24px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .form-submit:hover {
+        background-color: #2980b9;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .form-submit:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-submit:disabled {
+        background-color: #95a5a6;
+        cursor: not-allowed;
+        opacity: 0.6;
+        transform: none;
+    }
+
+    /* ========================================
+       Messages (Error / Success)
+       ======================================== */
+
+    .error-message,
+    .success-message {
+        font-size: 12px;
+        margin-top: 5px;
+        display: none;
+    }
+
+    .error-message {
+        color: #e74c3c;
+    }
+
+    .success-message {
+        color: #27ae60;
+    }
+
+    .error-message.show,
+    .success-message.show {
+        display: block;
+    }
+
+    /* ========================================
+       Form-wide Errors
+       ======================================== */
+
+    .form-errors {
+        display: none;
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        padding: 12px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+
+    .form-errors.show {
+        display: block;
+    }
+
+    .form-errors .error-item {
+        margin-bottom: 8px;
+    }
+
+    .form-errors .error-item:last-child {
+        margin-bottom: 0;
+    }
+
+    /* ========================================
+       Success Message
+       ======================================== */
+
+    .form-success-message {
+        display: none;
+        background-color: #d5f4e6;
+        border: 2px solid #27ae60;
+        color: #27ae60;
+        padding: 15px;
+        border-radius: 4px;
+        text-align: center;
+        font-weight: bold;
+        margin-top: 20px;
+    }
+
+    .form-success-message.show {
+        display: block;
+    }
+
+    /* ========================================
+       Form States
+       ======================================== */
+
+    .direct-bind-form.submitted {
+        opacity: 0.7;
+    }
+
+    .form-field.validating .form-input {
+        border-color: #f39c12;
+    }
+
+    .form-field.error .form-input {
+        border-color: #e74c3c;
+        background-color: #fadbd8;
+    }
+
+    .form-field.success .form-input {
+        border-color: #27ae60;
+        background-color: #d5f4e6;
+    }
+
+    /* ========================================
+       Responsive (Mobile)
+       ======================================== */
+
+    @media (max-width: 768px) {
+        .direct-bind-form {
+            max-width: 100%;
+            margin: 20px 10px;
+        }
+
+        .form-container {
+            padding: 15px;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            padding: 15px 10px;
+            font-size: 16px;  /* iOS 줌 방지 */
+        }
+
+        .form-submit {
+            padding: 15px 20px;
+            font-size: 18px;
+        }
+
+        .form-field {
+            margin-bottom: 18px;
+        }
+    }
+
+    /* ========================================
+       Accessibility (High Contrast)
+       ======================================== */
+
+    @media (prefers-contrast: more) {
+        .form-input,
+        .form-select,
+        .form-textarea {
+            border-width: 2px;
+        }
+
+        .form-submit {
+            border: 2px solid #000;
+        }
+    }
+
+    /* ========================================
+       Dark Mode
+       ======================================== */
+
+    @media (prefers-color-scheme: dark) {
+        .direct-bind-form {
+            color: #ecf0f1;
+        }
+
+        .form-container {
+            background-color: #1a1a1a;
+        }
+
+        .form-field label {
+            color: #ecf0f1;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            border-color: #34495e;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+        }
+
+        .form-help {
+            color: #95a5a6;
+        }
+
+        .form-errors {
+            background-color: #5a2a28;
+            border-color: #e74c3c;
+            color: #fadbd8;
+        }
+
+        .form-success-message {
+            background-color: #2a4a3a;
+            border-color: #27ae60;
+            color: #d5f4e6;
+        }
+    }
+
+    /* ========================================
+       Reduced Motion (accessibility)
+       ======================================== */
+
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+    `
+}
+
+// ========================================
+// 전체 스타일 번들
+// ========================================
+
+fn get_complete_styles() -> string {
+    let base = get_form_base_styles()
+    let animations = get_animations_css()
+    return base + "\n" + animations
+}
+
+// ========================================
+// 스타일 주입
+// ========================================
+
+fn inject_form_styles() {
+    let style_element = __create_style_element()
+    let styles = get_complete_styles()
+    style_element.textContent = styles
+    __inject_into_head(style_element)
+}
+
+fn __create_style_element() -> any {
+    // <style> 요소 생성
+}
+
+fn __inject_into_head(element: any) {
+    // head에 스타일 주입
+}
+
+// ========================================
+// Phase 3 체크리스트
+// ========================================
+
+// [x] 기본 폼 레이아웃
+// [x] 입력 필드 스타일
+// [x] 라벨 스타일
+// [x] 버튼 스타일
+// [x] 메시지 스타일
+// [x] 모바일 반응형
+// [x] 다크모드
+// [x] 접근성 (high contrast)
+// [x] 감소 모션 (reduced motion)
+//
+// [ ] 스타일 주입
+// [ ] DOM 조작

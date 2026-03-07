@@ -1,0 +1,379 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 3: Form Animations & Effects
+// 부드러운 에러/성공 애니메이션
+// 2026-03-08
+
+// ========================================
+// CSS 애니메이션 정의
+// ========================================
+
+fn get_animations_css() -> string {
+    return `
+    /* ========================================
+       Phase 3: Animations
+       ======================================== */
+
+    /* 1. 에러 메시지 - 슬라이드인 + 페이드인 */
+    @keyframes slideInError {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .form-field.error .error-message.show {
+        animation: slideInError 0.3s ease-out;
+        color: #e74c3c;
+        font-size: 12px;
+        margin-top: 5px;
+        display: block;
+    }
+
+    /* 2. 성공 메시지 - 체크마크 애니메이션 */
+    @keyframes checkmark {
+        0% {
+            transform: scale(0) rotate(-45deg);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.2);
+        }
+        100% {
+            transform: scale(1) rotate(0);
+            opacity: 1;
+        }
+    }
+
+    .form-field.success .success-message.show {
+        animation: checkmark 0.4s ease-out;
+        color: #27ae60;
+        font-weight: bold;
+        margin-left: 5px;
+    }
+
+    /* 3. 검증 중 - 로딩 스피너 */
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .form-field.validating {
+        position: relative;
+    }
+
+    .loading-spinner {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #3498db;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    /* 4. 필드 상태 전환 */
+    .form-input {
+        transition: all 0.3s ease;
+        border: 1px solid #bdc3c7;
+        background-color: #fff;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+    }
+
+    .form-input.validating {
+        border-color: #f39c12;
+        background-color: #fffaf0;
+    }
+
+    .form-input.error {
+        border-color: #e74c3c;
+        background-color: #fadbd8;
+    }
+
+    .form-input.error:focus {
+        box-shadow: 0 0 5px rgba(231, 76, 60, 0.3);
+    }
+
+    .form-input.success {
+        border-color: #27ae60;
+        background-color: #d5f4e6;
+    }
+
+    .form-input.success:focus {
+        box-shadow: 0 0 5px rgba(39, 174, 96, 0.3);
+    }
+
+    /* 5. 흔들림 효과 (invalid shake) */
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+
+    .form-field.shake .form-input {
+        animation: shake 0.3s ease-in-out;
+    }
+
+    /* 6. 페이드아웃 (성공 후 필드 비활성화) */
+    @keyframes fadeOut {
+        from {
+            opacity: 1;
+        }
+        to {
+            opacity: 0.7;
+        }
+    }
+
+    .form-field.readonly {
+        animation: fadeOut 0.5s ease-out forwards;
+    }
+
+    /* 7. 폼 제출 성공 - 바운스 효과 */
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .form-success-message {
+        padding: 15px;
+        background-color: #d5f4e6;
+        border: 2px solid #27ae60;
+        border-radius: 4px;
+        color: #27ae60;
+        text-align: center;
+        font-weight: bold;
+        margin-top: 20px;
+        animation: bounce 0.6s ease-out;
+    }
+
+    /* 8. 에러 메시지 영역 - 슬라이드인 */
+    @keyframes slideInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .form-errors {
+        animation: slideInDown 0.4s ease-out;
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        padding: 12px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+
+    .form-errors .error-item {
+        margin-bottom: 8px;
+        animation: slideInError 0.3s ease-out;
+    }
+
+    /* 9. 제출 버튼 상태 */
+    .form-submit {
+        transition: all 0.3s ease;
+        background-color: #3498db;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+        width: 100%;
+    }
+
+    .form-submit:hover {
+        background-color: #2980b9;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .form-submit:active {
+        transform: translateY(0);
+    }
+
+    .form-submit:disabled {
+        background-color: #95a5a6;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .form-submit.loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    /* 10. 라벨 애니메이션 (focus) */
+    .form-field label {
+        transition: all 0.2s ease;
+        color: #2c3e50;
+    }
+
+    .form-field:focus-within label {
+        color: #3498db;
+        font-weight: 500;
+    }
+
+    .form-field.error label {
+        color: #e74c3c;
+    }
+
+    .form-field.success label {
+        color: #27ae60;
+    }
+
+    /* ========================================
+       Responsive (Mobile)
+       ======================================== */
+
+    @media (max-width: 768px) {
+        /* 모바일에서는 더 큰 터치 영역 */
+        .form-input {
+            padding: 15px 10px;
+            font-size: 16px;  /* iOS 줌 방지 */
+        }
+
+        .form-submit {
+            padding: 15px 20px;
+            font-size: 18px;
+        }
+
+        /* 애니메이션 단순화 */
+        @keyframes slideInError {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    }
+
+    /* ========================================
+       Dark Mode (선택사항)
+       ======================================== */
+
+    @media (prefers-color-scheme: dark) {
+        .form-input {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            border-color: #34495e;
+        }
+
+        .form-input:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+        }
+
+        .form-input.error {
+            background-color: #5a2a28;
+            color: #fadbd8;
+            border-color: #e74c3c;
+        }
+
+        .form-input.success {
+            background-color: #2a4a3a;
+            color: #d5f4e6;
+            border-color: #27ae60;
+        }
+
+        .form-errors {
+            background-color: #5a2a28;
+            border-color: #e74c3c;
+            color: #fadbd8;
+        }
+    }
+    `
+}
+
+// ========================================
+// 애니메이션 트리거 함수
+// ========================================
+
+struct AnimationManager {
+    fn trigger_error_animation(field_name: string) {
+        // CSS 클래스 추가 → 애니메이션 실행
+        let element = __get_element("." + field_name)
+        element.classList.add("shake")  // 흔들림 효과
+
+        // 500ms 후 제거
+        __set_timeout(fn() {
+            element.classList.remove("shake")
+        }, 500)
+    }
+
+    fn trigger_success_animation(field_name: string) {
+        let element = __get_element("." + field_name)
+        let success_msg = element.querySelector(".success-message")
+
+        if success_msg != null {
+            success_msg.classList.add("show")
+        }
+    }
+
+    fn trigger_form_success_animation() {
+        // 제출 성공 바운스 효과
+        let form = __get_element(".direct-bind-form")
+        form.classList.add("submitted")
+    }
+
+    fn disable_field_animation(field_name: string) {
+        // 제출 후 필드 비활성화 (페이드아웃)
+        let element = __get_element("." + field_name)
+        element.classList.add("readonly")
+    }
+}
+
+// ========================================
+// 지연 함수들
+// ========================================
+
+fn __get_element(selector: string) -> any {
+    // DOM 요소 조회
+}
+
+fn __set_timeout(callback: fn(), delay_ms: int) -> any {
+    // 타이머 설정
+}
+
+// ========================================
+// Phase 3 체크리스트
+// ========================================
+
+// [x] 기본 CSS 애니메이션
+// [x] slideInError
+// [x] checkmark
+// [x] spin (로딩)
+// [x] shake (invalid)
+// [x] fadeOut
+// [x] bounce (success)
+// [x] slideInDown
+// [x] 상태별 색상
+// [x] 제출 버튼 호버/액티브
+// [x] 반응형 (모바일)
+// [x] 다크모드 지원
+//
+// [ ] 애니메이션 트리거
+// [ ] 흔들림 효과 연결
+// [ ] 성공 애니메이션 연결

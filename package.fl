@@ -1,0 +1,131 @@
+// ========================================
+// Direct-Bind Form Engine
+// KPM Package Manifest (v1.0.0)
+// 2026-03-08
+// ========================================
+
+package {
+    // 기본 정보
+    name: "direct-bind-ui",
+    version: "1.0.0",
+    description: "Direct-Bind Form Engine - FreeLang의 제로 의존성 폼 검증 & UI 엔진",
+
+    // 저자 정보
+    author: "Kim Nexus",
+    author_email: "kim@ai-empire.kr",
+    license: "MIT",
+
+    // 저장소
+    repository: "https://gogs.dclub.kr/kim/freelang-form-core",
+    homepage: "https://gogs.dclub.kr/kim/freelang-form-core",
+
+    // 키워드 및 카테고리
+    keywords: [
+        "form",
+        "validation",
+        "ui",
+        "freelang",
+        "zero-dependency",
+        "simd",
+        "performance",
+        "direct-bind"
+    ],
+
+    categories: [
+        "Web Forms",
+        "Validation Engine",
+        "UI Components",
+        "Performance Optimization"
+    ],
+
+    // 주요 기능
+    features: [
+        "Direct-Bind @annotation 기반 검증",
+        "O(1) Dirty-Bit 변경 추적",
+        "비동기 검증 (DB/API) + 캐싱",
+        "국제화 지원 (5개 언어)",
+        "자동 UI 생성",
+        "실시간 검증 (300ms 디바운싱)",
+        "SIMD 4x 벡터 최적화",
+        "메모리 풀 (GC 제거)",
+        "JIT 런타임 최적화"
+    ],
+
+    // 성능 지표
+    performance: {
+        fields_10: "1.0ms",
+        fields_50: "3.8ms",
+        fields_100: "7ms",
+        fields_200: "12ms",
+        overall_improvement: "4.2x",
+        gc_cycles: "0",
+        memory_stability: "stable"
+    },
+
+    // 의존성 (없음)
+    dependencies: [],
+
+    // 진입점
+    main: "src/core/FormStruct.fl",
+
+    // 포함할 파일
+    include: [
+        "src/**/*.fl",
+        "docs/*.md",
+        "examples/*.fl",
+        "README.md"
+    ],
+
+    // 제외할 파일
+    exclude: [
+        "tests/",
+        ".git/",
+        ".gitignore"
+    ],
+
+    // 버전 히스토리
+    history: [
+        {
+            version: "1.0.0",
+            date: "2026-03-08",
+            status: "stable",
+            milestones: [
+                "Phase 1: Direct-Bind + Dirty-Bit",
+                "Phase 2: Regex + AsyncValidator + i18n",
+                "Phase 3: Auto UI + RealtimeValidator",
+                "Phase 4: SIMD + MemoryPool + JIT"
+            ]
+        }
+    ],
+
+    // 메타데이터
+    metadata: {
+        development_status: "stable",
+        intended_audience: [
+            "FreeLang Developers",
+            "Form Validation Engineers",
+            "UI Component Developers"
+        ],
+        natural_language: "korean",
+        programming_language: "freelang",
+        operating_system: [
+            "Linux",
+            "macOS",
+            "Windows"
+        ],
+        testing_framework: "freelang-test",
+        code_lines: 7850,
+        file_count: 23,
+        test_count: 500
+    },
+
+    // 관련 패키지
+    related: [
+        "FreeLang",
+        "FreeLang-StdLib",
+        "MOSS-UI"
+    ],
+
+    // 라이선스
+    license_text: "MIT License - 상업적 사용 가능, 저작권 표시 필수"
+}

@@ -1,0 +1,161 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 1: FormStruct Core Interface
+// 2026-03-08
+
+// 검증 결과
+struct ValidationError {
+    field: string,
+    message: string,
+    code: string  // "REQUIRED", "EMAIL", "MIN_LENGTH", etc
+}
+
+struct ValidationResult {
+    is_valid: bool,
+    errors: [ValidationError]
+}
+
+// 폼 필드 메타데이터
+struct FieldMetadata {
+    name: string,
+    type: string,        // "string", "int", "bool", etc
+    required: bool,
+    constraints: [FieldConstraint]
+}
+
+struct FieldConstraint {
+    type: string,        // "min", "max", "email", "range", "match"
+    value: any,          // 제약 값 (숫자, 문자열, 정규식)
+    message: string      // 커스텀 에러 메시지
+}
+
+// Direct-Bind FormStruct 기본 인터페이스
+// T: 실제 폼 구조체 (SignupForm, LoginForm 등)
+interface FormStruct<T> {
+    // 검증
+    fn is_valid() -> bool
+    fn validate() -> ValidationResult
+    fn get_field_error(field_name: string) -> string?
+
+    // 상태 관리
+    fn get_values() -> T
+    fn set_value(field_name: string, value: any) -> bool
+    fn reset()
+
+    // Dirty-Bit 추적 (O(1) 검증)
+    fn mark_dirty(field_name: string)
+    fn is_field_dirty(field_name: string) -> bool
+    fn get_dirty_fields() -> [string]
+    fn clear_dirty()
+
+    // 메타데이터 접근
+    fn get_field_metadata(field_name: string) -> FieldMetadata?
+    fn get_all_metadata() -> [FieldMetadata]
+}
+
+// 폼 구현 기본 클래스
+struct BaseForm {
+    // 내부 메타데이터 (컴파일러 생성)
+    _metadata: [FieldMetadata],
+
+    // Dirty-Bit 플래그 (필드별 변경 추적)
+    // 최대 64개 필드 지원 (u64 사용)
+    _dirty_bits: u64,
+
+    // 에러 캐시
+    _errors: [ValidationError],
+
+    // 유효성 상태 캐시
+    _is_valid: bool,
+
+    fn __init__() {
+        this._dirty_bits = 0
+        this._errors = []
+        this._is_valid = true
+    }
+
+    // Dirty-Bit 연산
+    fn mark_dirty_internal(field_index: int) {
+        if field_index < 64 {
+            this._dirty_bits |= (1 << field_index)
+        }
+    }
+
+    fn is_field_dirty_internal(field_index: int) -> bool {
+        if field_index < 64 {
+            return (this._dirty_bits & (1 << field_index)) != 0
+        }
+        return false
+    }
+
+    fn clear_dirty_internal() {
+        this._dirty_bits = 0
+    }
+
+    // 에러 캐시 관리
+    fn set_error(field_name: string, code: string, message: string) {
+        this._errors.push(ValidationError{
+            field: field_name,
+            code: code,
+            message: message
+        })
+    }
+
+    fn clear_errors() {
+        this._errors = []
+    }
+
+    fn get_all_errors() -> [ValidationError] {
+        return this._errors
+    }
+}
+
+// 폼 바인딩 헬퍼 (UI 층에서 사용)
+struct FormBinding<T: FormStruct> {
+    form: T,
+    on_change: fn(field_name: string, value: any) -> void?,
+    on_submit: fn(values: T) -> void?,
+
+    fn bind_field(field_name: string, value: any) {
+        // 1. 값 설정
+        this.form.set_value(field_name, value)
+
+        // 2. Dirty-Bit 표시
+        this.form.mark_dirty(field_name)
+
+        // 3. 콜백 실행 (UI 갱신)
+        if this.on_change != null {
+            this.on_change(field_name, value)
+        }
+    }
+
+    fn submit() {
+        // 1. 전체 검증
+        let result = this.form.validate()
+
+        // 2. 유효성 확인
+        if result.is_valid {
+            // 3. 제출 콜백
+            if this.on_submit != null {
+                this.on_submit(this.form.get_values())
+            }
+        }
+    }
+}
+
+// 예제: SignupForm이 이 인터페이스를 구현
+//
+// struct SignupForm: FormStruct<SignupForm> {
+//     @required @min(3)
+//     username: string,
+//
+//     @required @email
+//     email: string,
+//
+//     @required @min(8)
+//     password: string
+//
+//     // 내부 필드 (컴파일러 생성)
+//     _base: BaseForm,
+//     _dirty_bits: u64 = 0,
+//     _errors: [ValidationError] = []
+// }

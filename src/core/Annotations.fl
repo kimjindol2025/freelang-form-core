@@ -1,0 +1,255 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 1: Annotation System
+// 컴파일러가 처리하는 메타데이터 어노테이션
+// 2026-03-08
+
+// ========================================
+// 어노테이션 정의 (Compiler Directive)
+// ========================================
+
+// @required: 필수 필드 (null/undefined 불허)
+// 사용: @required
+// 코드: if (value == null) error("REQUIRED", "필수 필드입니다")
+//
+// Example:
+// struct User {
+//     @required
+//     name: string
+// }
+
+// @min(n): 최소 길이/값
+// 사용: @min(3) 또는 @min(18)
+// 코드: if (value.length < 3 || value < 18) error("MIN_LENGTH", "최소 3자")
+//
+// Example:
+// struct SignupForm {
+//     @min(3)
+//     username: string,
+//
+//     @min(18)
+//     age: int
+// }
+
+// @max(n): 최대 길이/값
+// 사용: @max(20) 또는 @max(99)
+// 코드: if (value.length > 20 || value > 99) error("MAX_LENGTH", "최대 20자")
+//
+// Example:
+// struct SignupForm {
+//     @max(20)
+//     username: string
+// }
+
+// @email: 이메일 형식 검증
+// 사용: @email
+// 코드: if (!is_email(value)) error("EMAIL", "올바른 이메일이 아닙니다")
+//
+// Example:
+// struct SignupForm {
+//     @required @email
+//     email: string
+// }
+
+// @match(regex): 정규식 매칭
+// 사용: @match("^[0-9]{10,11}$")
+// 코드: if (!regex_match(value, pattern)) error("PATTERN", "올바른 형식이 아닙니다")
+//
+// Example:
+// struct UserForm {
+//     @match("^[0-9]{10,11}$")
+//     phone: string
+// }
+
+// @range(min, max): 범위 검증
+// 사용: @range(18, 99)
+// 코드: if (value < 18 || value > 99) error("RANGE", "18~99 사이여야 합니다")
+//
+// Example:
+// struct SignupForm {
+//     @range(18, 99)
+//     age: int
+// }
+
+// @positive: 양수만
+// 사용: @positive
+// 코드: if (value <= 0) error("POSITIVE", "양수만 가능합니다")
+//
+// Example:
+// struct ProductForm {
+//     @positive
+//     price: int
+// }
+
+// @integer: 정수만
+// 사용: @integer
+// 코드: if (value % 1 != 0) error("INTEGER", "정수만 가능합니다")
+//
+// Example:
+// struct Form {
+//     @integer
+//     quantity: int
+// }
+
+// @custom(validator_fn): 커스텀 검증
+// 사용: @custom(is_unique_username)
+// 코드: fn is_unique_username(value: string) -> bool { ... }
+//       if (!is_unique_username(value)) error("CUSTOM", "이미 사용 중입니다")
+//
+// Example:
+// fn is_unique_username(username: string) -> bool {
+//     return !db.username_exists(username)
+// }
+//
+// struct SignupForm {
+//     @required @custom(is_unique_username)
+//     username: string
+// }
+
+// ========================================
+// 컴파일러 생성 검증 함수 (자동)
+// ========================================
+
+// Phase 1에서 컴파일러가 생성할 검증 함수들
+
+fn validate_required(value: any) -> bool {
+    return value != null && value != ""
+}
+
+fn validate_min_string(value: string, min_length: int) -> bool {
+    return value.length >= min_length
+}
+
+fn validate_min_number(value: int, min_value: int) -> bool {
+    return value >= min_value
+}
+
+fn validate_max_string(value: string, max_length: int) -> bool {
+    return value.length <= max_length
+}
+
+fn validate_max_number(value: int, max_value: int) -> bool {
+    return value <= max_value
+}
+
+fn validate_email(value: string) -> bool {
+    // 간단한 이메일 검증 (Phase 2에서 개선)
+    // RFC 5322 완전 구현은 Phase 3에서
+    return value.contains("@") && value.contains(".")
+}
+
+fn validate_phone(value: string) -> bool {
+    // 한국 전화번호 형식 (010-1234-5678 또는 01012345678)
+    return value.length >= 10 && value.length <= 11
+}
+
+fn validate_range(value: int, min: int, max: int) -> bool {
+    return value >= min && value <= max
+}
+
+fn validate_positive(value: int) -> bool {
+    return value > 0
+}
+
+fn validate_integer(value: any) -> bool {
+    // value가 정수인지 확인
+    if value is int {
+        return true
+    }
+    return false
+}
+
+// ========================================
+// 어노테이션 메타데이터 처리
+// ========================================
+
+// Phase 1 메타데이터 레지스트리
+// (컴파일러가 자동 생성)
+
+struct AnnotationRegistry {
+    // 필드명 → [어노테이션 목록]
+    field_annotations: map<string, [AnnotationInfo]>
+}
+
+struct AnnotationInfo {
+    name: string,           // "required", "min", "max", "email", etc
+    value: any,             // 파라미터 값 (min(3) → 3)
+    custom_message: string? // 커스텀 에러 메시지
+}
+
+// 예제: SignupForm의 어노테이션 메타데이터
+//
+// AnnotationRegistry {
+//     field_annotations: {
+//         "username": [
+//             AnnotationInfo{ name: "required", value: null },
+//             AnnotationInfo{ name: "min", value: 3 },
+//             AnnotationInfo{ name: "max", value: 20 }
+//         ],
+//         "email": [
+//             AnnotationInfo{ name: "required", value: null },
+//             AnnotationInfo{ name: "email", value: null }
+//         ],
+//         "password": [
+//             AnnotationInfo{ name: "required", value: null },
+//             AnnotationInfo{ name: "min", value: 8 }
+//         ]
+//     }
+// }
+
+// ========================================
+// 기본 에러 메시지 (다국어 지원 - Phase 2)
+// ========================================
+
+map<string, map<string, string>> ERROR_MESSAGES = {
+    "required": {
+        "ko": "필수 필드입니다",
+        "en": "This field is required"
+    },
+    "min_length": {
+        "ko": "최소 {min}자 이상이어야 합니다",
+        "en": "Minimum {min} characters"
+    },
+    "max_length": {
+        "ko": "최대 {max}자 이하여야 합니다",
+        "en": "Maximum {max} characters"
+    },
+    "min_value": {
+        "ko": "{min} 이상이어야 합니다",
+        "en": "Must be {min} or greater"
+    },
+    "max_value": {
+        "ko": "{max} 이하여야 합니다",
+        "en": "Must be {max} or less"
+    },
+    "email": {
+        "ko": "올바른 이메일 주소가 아닙니다",
+        "en": "Invalid email address"
+    },
+    "phone": {
+        "ko": "올바른 전화번호가 아닙니다",
+        "en": "Invalid phone number"
+    },
+    "range": {
+        "ko": "{min}에서 {max} 사이여야 합니다",
+        "en": "Must be between {min} and {max}"
+    },
+    "pattern": {
+        "ko": "올바른 형식이 아닙니다",
+        "en": "Invalid format"
+    },
+    "positive": {
+        "ko": "양수만 가능합니다",
+        "en": "Must be a positive number"
+    }
+}
+
+// ========================================
+// Phase 1 체크리스트
+// ========================================
+
+// [ ] 컴파일러에 어노테이션 파서 추가
+// [ ] 각 어노테이션별 검증 함수 생성 로직
+// [ ] 메타데이터 런타임 레지스트리
+// [ ] Dirty-Bit과 연동한 선택적 검증
+// [ ] 에러 메시지 포매팅
+// [ ] 다국어 지원 (Phase 2)

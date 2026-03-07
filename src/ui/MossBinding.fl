@@ -1,0 +1,330 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 1: MOSS-UI Binding Layer
+// UI 자동 렌더링과 데이터 바인딩
+// 2026-03-08
+
+// ========================================
+// MOSS-UI 폼 컴포넌트
+// ========================================
+
+// 폼 전체를 감싸는 컴포넌트
+struct MossFormComponent {
+    form: any,              // FormStruct 구현체
+    form_name: string,
+    fields: [MossFieldComponent],
+    submit_button: MossButtonComponent,
+    error_display: MossErrorDisplay,
+
+    fn render() -> string {
+        // Phase 1: 기본 렌더링 (HTML 생성)
+        let html = "<form class=\"direct-bind-form\" id=\"" + this.form_name + "\">\n"
+
+        // 각 필드 렌더링
+        for field in this.fields {
+            html += field.render() + "\n"
+        }
+
+        // 제출 버튼
+        html += this.submit_button.render() + "\n"
+
+        // 에러 표시 영역
+        html += this.error_display.render() + "\n"
+
+        html += "</form>"
+        return html
+    }
+
+    fn on_field_change(field_name: string, value: any) {
+        // 1. 값 업데이트
+        this.form.set_value(field_name, value)
+
+        // 2. Dirty-Bit 표시
+        this.form.mark_dirty(field_name)
+
+        // 3. 실시간 검증 (선택사항)
+        let result = this.form.validate()
+        this.update_error_display(result)
+
+        // 4. UI 재렌더링 (필드 에러 표시)
+        for field in this.fields {
+            if field.field_name == field_name {
+                field.update_error(result)
+            }
+        }
+    }
+
+    fn on_submit() {
+        // 1. 전체 검증
+        let result = this.form.validate()
+
+        // 2. 에러 표시
+        if !result.is_valid {
+            this.update_error_display(result)
+            return
+        }
+
+        // 3. 제출 (사용자 콜백)
+        // → on_submit 핸들러 호출 (상위에서 정의)
+    }
+
+    fn update_error_display(result: ValidationResult) {
+        for error in result.errors {
+            this.error_display.add_error(error)
+        }
+    }
+}
+
+// 개별 입력 필드 컴포넌트
+struct MossFieldComponent {
+    field_name: string,
+    field_type: string,           // "text", "email", "password", "number"
+    label: string,
+    placeholder: string,
+    value: any,
+    constraints: [FieldConstraint],
+    error: ValidationError?,
+    required: bool,
+
+    fn render() -> string {
+        let html = "<div class=\"form-field\">\n"
+
+        // 라벨
+        html += "  <label for=\"" + this.field_name + "\">"
+        html += this.label
+        if this.required {
+            html += " <span class=\"required\">*</span>"
+        }
+        html += "</label>\n"
+
+        // 입력 필드
+        html += "  <input type=\"" + this.field_type + "\""
+        html += " id=\"" + this.field_name + "\""
+        html += " name=\"" + this.field_name + "\""
+        html += " placeholder=\"" + this.placeholder + "\""
+        html += " class=\"form-input"
+
+        if this.error != null {
+            html += " error"
+        }
+        html += "\""
+        html += " />\n"
+
+        // 에러 메시지
+        if this.error != null {
+            html += "  <span class=\"error-message\">"
+            html += this.error.message
+            html += "</span>\n"
+        }
+
+        html += "</div>"
+        return html
+    }
+
+    fn update_error(result: ValidationResult) {
+        // 이 필드의 에러 찾기
+        for error in result.errors {
+            if error.field == this.field_name {
+                this.error = error
+                return
+            }
+        }
+        this.error = null
+    }
+}
+
+// 제출 버튼
+struct MossButtonComponent {
+    label: string,
+    is_loading: bool = false,
+
+    fn render() -> string {
+        let html = "<button type=\"submit\" class=\"form-submit"
+        if this.is_loading {
+            html += " loading"
+        }
+        html += "\">\n"
+        html += "  " + this.label + "\n"
+        html += "</button>"
+        return html
+    }
+}
+
+// 에러 표시 영역
+struct MossErrorDisplay {
+    errors: [ValidationError] = [],
+
+    fn render() -> string {
+        if this.errors.length == 0 {
+            return ""
+        }
+
+        let html = "<div class=\"form-errors\">\n"
+        for error in this.errors {
+            html += "  <div class=\"error-item\">" + error.message + "</div>\n"
+        }
+        html += "</div>"
+        return html
+    }
+
+    fn add_error(error: ValidationError) {
+        this.errors.push(error)
+    }
+
+    fn clear() {
+        this.errors = []
+    }
+}
+
+// ========================================
+// 폼 빌더 API (사용자 편의성)
+// ========================================
+
+// fn form<T: FormStruct>(bind: T) -> MossFormBuilder
+// 사용자 코드:
+//   UI.form(bind: form) {
+//       UI.input(field: .username)
+//       UI.input(field: .email)
+//       UI.button("가입")
+//   }
+
+struct MossFormBuilder {
+    form: any,
+    fields: [MossFieldComponent] = [],
+    submit_handler: fn()? = null,
+
+    fn input(field_name: string, type: string = "text", label: string = "") -> MossFormBuilder {
+        let field = MossFieldComponent{
+            field_name: field_name,
+            field_type: type,
+            label: label,
+            placeholder: field_name,
+            value: null,
+            constraints: []
+        }
+        this.fields.push(field)
+        return this
+    }
+
+    fn email(field_name: string, label: string = "") -> MossFormBuilder {
+        return this.input(field_name, "email", label)
+    }
+
+    fn password(field_name: string, label: string = "") -> MossFormBuilder {
+        return this.input(field_name, "password", label)
+    }
+
+    fn number(field_name: string, label: string = "") -> MossFormBuilder {
+        return this.input(field_name, "number", label)
+    }
+
+    fn on_submit(handler: fn()) -> MossFormBuilder {
+        this.submit_handler = handler
+        return this
+    }
+
+    fn build() -> MossFormComponent {
+        let form_component = MossFormComponent{
+            form: this.form,
+            form_name: "form_" + (rand() as string),
+            fields: this.fields,
+            submit_button: MossButtonComponent{ label: "제출" },
+            error_display: MossErrorDisplay{}
+        }
+        return form_component
+    }
+}
+
+// ========================================
+// 스타일 & CSS (Phase 1 - 기본)
+// ========================================
+
+fn get_form_styles() -> string {
+    return `
+    <style>
+    .direct-bind-form {
+        max-width: 500px;
+        margin: 20px auto;
+    }
+
+    .form-field {
+        margin-bottom: 20px;
+    }
+
+    .form-field label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+    }
+
+    .form-field label .required {
+        color: red;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .form-input.error {
+        border-color: #e74c3c;
+        background-color: #fadbd8;
+    }
+
+    .error-message {
+        display: block;
+        color: #e74c3c;
+        font-size: 12px;
+        margin-top: 5px;
+    }
+
+    .form-submit {
+        width: 100%;
+        padding: 12px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .form-submit:hover {
+        background-color: #2980b9;
+    }
+
+    .form-submit.loading {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .form-errors {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        padding: 12px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+
+    .form-errors .error-item {
+        margin-bottom: 8px;
+    }
+    </style>
+    `
+}
+
+// ========================================
+// Phase 1 구현 체크리스트
+// ========================================
+
+// [ ] MossFormComponent 기본 렌더링
+// [ ] MossFieldComponent 자동 UI 생성
+// [ ] 필드 ↔ 값 바인딩
+// [ ] 실시간 에러 표시
+// [ ] 폼 빌더 API (유연한 사용)
+// [ ] 기본 CSS 스타일
+// [ ] 사용자 콜백 통합
+// [ ] MOSS-UI 네이티브 바인딩 확인

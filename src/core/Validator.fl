@@ -1,0 +1,316 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 1: Validator - O(1) Validation with Dirty-Bit Tracking
+// 2026-03-08
+
+// ========================================
+// Validator 핵심 엔진
+// ========================================
+
+// Dirty-Bit을 이용한 O(1) 검증
+struct FieldValidator {
+    field_name: string,
+    field_index: int,           // Dirty-Bit 위치 (0-63)
+    type: string,               // "string", "int", "bool"
+    constraints: [FieldConstraint],
+
+    // 필드의 현재 값 (검증용)
+    current_value: any,
+
+    // 마지막 검증 결과 캐시
+    last_error: ValidationError?,
+
+    fn validate() -> ValidationResult {
+        let errors: [ValidationError] = []
+
+        // 각 제약 조건 검증
+        for constraint in this.constraints {
+            let error = this.validate_constraint(constraint)
+            if error != null {
+                errors.push(error)
+            }
+        }
+
+        return ValidationResult{
+            is_valid: errors.length == 0,
+            errors: errors
+        }
+    }
+
+    fn validate_constraint(constraint: FieldConstraint) -> ValidationError? {
+        match constraint.type {
+            "required" => {
+                return this.check_required()
+            }
+            "min" => {
+                return this.check_min(constraint.value)
+            }
+            "max" => {
+                return this.check_max(constraint.value)
+            }
+            "email" => {
+                return this.check_email()
+            }
+            "range" => {
+                return this.check_range(constraint.value)
+            }
+            "match" => {
+                return this.check_match(constraint.value)
+            }
+            "positive" => {
+                return this.check_positive()
+            }
+            "integer" => {
+                return this.check_integer()
+            }
+            _ => {
+                return null
+            }
+        }
+    }
+
+    // 검증 로직 구현
+
+    fn check_required() -> ValidationError? {
+        if this.current_value == null || this.current_value == "" {
+            return ValidationError{
+                field: this.field_name,
+                code: "REQUIRED",
+                message: "필수 필드입니다"
+            }
+        }
+        return null
+    }
+
+    fn check_min(min_value: any) -> ValidationError? {
+        if this.type == "string" {
+            if (this.current_value as string).length < (min_value as int) {
+                return ValidationError{
+                    field: this.field_name,
+                    code: "MIN_LENGTH",
+                    message: "최소 " + (min_value as string) + "자 이상"
+                }
+            }
+        } else if this.type == "int" {
+            if (this.current_value as int) < (min_value as int) {
+                return ValidationError{
+                    field: this.field_name,
+                    code: "MIN_VALUE",
+                    message: (min_value as string) + " 이상이어야 합니다"
+                }
+            }
+        }
+        return null
+    }
+
+    fn check_max(max_value: any) -> ValidationError? {
+        if this.type == "string" {
+            if (this.current_value as string).length > (max_value as int) {
+                return ValidationError{
+                    field: this.field_name,
+                    code: "MAX_LENGTH",
+                    message: "최대 " + (max_value as string) + "자 이하"
+                }
+            }
+        } else if this.type == "int" {
+            if (this.current_value as int) > (max_value as int) {
+                return ValidationError{
+                    field: this.field_name,
+                    code: "MAX_VALUE",
+                    message: (max_value as string) + " 이하여야 합니다"
+                }
+            }
+        }
+        return null
+    }
+
+    fn check_email() -> ValidationError? {
+        let email = this.current_value as string
+        if !email.contains("@") || !email.contains(".") {
+            return ValidationError{
+                field: this.field_name,
+                code: "EMAIL",
+                message: "올바른 이메일 주소가 아닙니다"
+            }
+        }
+        return null
+    }
+
+    fn check_range(range_value: any) -> ValidationError? {
+        // range_value = [min, max]
+        // 구현 - Phase 2에서 개선
+        return null
+    }
+
+    fn check_match(pattern: any) -> ValidationError? {
+        let value = this.current_value as string
+        let regex_pattern = pattern as string
+        // 정규식 매칭 - Phase 2에서 구현
+        return null
+    }
+
+    fn check_positive() -> ValidationError? {
+        if (this.current_value as int) <= 0 {
+            return ValidationError{
+                field: this.field_name,
+                code: "POSITIVE",
+                message: "양수만 가능합니다"
+            }
+        }
+        return null
+    }
+
+    fn check_integer() -> ValidationError? {
+        if !(this.current_value is int) {
+            return ValidationError{
+                field: this.field_name,
+                code: "INTEGER",
+                message: "정수만 가능합니다"
+            }
+        }
+        return null
+    }
+}
+
+// ========================================
+// 폼 전체 검증 엔진
+// ========================================
+
+struct FormValidator {
+    form_name: string,
+    validators: [FieldValidator],
+    dirty_bits: u64,           // Dirty-Bit 플래그
+
+    fn validate_all() -> ValidationResult {
+        let all_errors: [ValidationError] = []
+
+        // 모든 필드 검증
+        for validator in this.validators {
+            let result = validator.validate()
+            for error in result.errors {
+                all_errors.push(error)
+            }
+        }
+
+        return ValidationResult{
+            is_valid: all_errors.length == 0,
+            errors: all_errors
+        }
+    }
+
+    fn validate_dirty_fields_only() -> ValidationResult {
+        // O(1) 검증: Dirty-Bit이 설정된 필드만 검증
+        let all_errors: [ValidationError] = []
+
+        for i in 0..63 {
+            // i번째 필드가 변경되었는가?
+            if (this.dirty_bits & (1 << i)) != 0 {
+                let validator = this.validators[i]
+                let result = validator.validate()
+                for error in result.errors {
+                    all_errors.push(error)
+                }
+            }
+        }
+
+        return ValidationResult{
+            is_valid: all_errors.length == 0,
+            errors: all_errors
+        }
+    }
+
+    fn validate_field(field_name: string) -> ValidationResult {
+        // 특정 필드만 검증
+        for validator in this.validators {
+            if validator.field_name == field_name {
+                return validator.validate()
+            }
+        }
+
+        return ValidationResult{
+            is_valid: true,
+            errors: []
+        }
+    }
+
+    fn mark_field_dirty(field_index: int) {
+        if field_index < 64 {
+            this.dirty_bits |= (1 << field_index)
+        }
+    }
+
+    fn clear_dirty() {
+        this.dirty_bits = 0
+    }
+
+    fn get_field_error(field_name: string) -> string? {
+        let result = this.validate_field(field_name)
+        if result.errors.length > 0 {
+            return result.errors[0].message
+        }
+        return null
+    }
+}
+
+// ========================================
+// 검증 결과 포맷팅
+// ========================================
+
+struct ValidationFormatter {
+    locale: string = "ko",  // "ko", "en"
+
+    fn format_error(error: ValidationError) -> string {
+        // 에러 코드별 메시지 매핑 (Phase 2에서 i18n 개선)
+        match error.code {
+            "REQUIRED" => {
+                return this.locale == "ko" ? "필수 필드입니다" : "This field is required"
+            }
+            "EMAIL" => {
+                return this.locale == "ko" ? "올바른 이메일이 아닙니다" : "Invalid email"
+            }
+            "MIN_LENGTH" => {
+                return this.locale == "ko" ? "너무 짧습니다" : "Too short"
+            }
+            "MAX_LENGTH" => {
+                return this.locale == "ko" ? "너무 깁니다" : "Too long"
+            }
+            _ => {
+                return error.message
+            }
+        }
+    }
+
+    fn format_errors(errors: [ValidationError]) -> [string] {
+        let formatted: [string] = []
+        for error in errors {
+            formatted.push(this.format_error(error))
+        }
+        return formatted
+    }
+}
+
+// ========================================
+// 성능 벤치마크 (Phase 1)
+// ========================================
+
+// 목표:
+// - 필드 입력 검증: < 1ms (Dirty-Bit)
+// - 폼 제출 검증 (10개 필드): < 2ms
+// - 메모리 오버헤드: < 100B per field
+
+fn benchmark_validation() {
+    // Phase 1: 성능 테스트 구현
+    // (실제 벤치마크는 examples/에서 수행)
+}
+
+// ========================================
+// Phase 1 구현 체크리스트
+// ========================================
+
+// [ ] FieldValidator 구현 완료
+// [ ] 기본 검증 로직 (required, min, max, email) 구현
+// [ ] FormValidator O(1) 검증 구현
+// [ ] Dirty-Bit 추적 로직 확인
+// [ ] ValidationFormatter 기본 구현
+// [ ] 단위 테스트 작성 및 통과
+// [ ] 성능 벤치마크 실행
+// [ ] 문서 업데이트

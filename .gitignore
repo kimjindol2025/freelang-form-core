@@ -1,0 +1,33 @@
+# Build
+build/
+dist/
+*.o
+*.a
+*.so
+*.dylib
+
+# FreeLang
+*.flc
+*.flir
+*.obj
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Dependencies
+node_modules/
+kim_modules/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+.tmp/
+*.tmp

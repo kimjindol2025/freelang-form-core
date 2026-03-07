@@ -1,0 +1,359 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 2: Async Validator
+// 비동기 검증 (DB, API 조회)
+// 2026-03-08
+
+// ========================================
+// 비동기 검증 결과
+// ========================================
+
+struct AsyncValidationResult {
+    is_valid: bool,
+    error: ValidationError?,
+    pending: bool = false,      // 검증 진행 중
+    timestamp: i64 = 0,         // 완료 시간 (ms)
+    duration: i64 = 0,          // 소요 시간 (ms)
+}
+
+// ========================================
+// 비동기 검증 함수 타입
+// ========================================
+
+// 동기 검증
+type Validator = fn(value: any) -> bool
+
+// 비동기 검증
+type AsyncValidator = fn(value: any) -> AsyncValidationResult
+
+// 원격 검증 (HTTP)
+type RemoteValidator = fn(value: any) -> HttpRequest
+
+// ========================================
+// 비동기 검증 엔진
+// ========================================
+
+struct AsyncFieldValidator {
+    field_name: string,
+    async_validators: [AsyncValidator] = [],
+    sync_validators: [Validator] = [],
+
+    // 캐시 (동일 값의 재검증 방지)
+    cache: map<string, AsyncValidationResult> = {},
+    cache_timeout: i64 = 5000,  // 5초
+
+    fn add_async_validator(validator: AsyncValidator) {
+        this.async_validators.push(validator)
+    }
+
+    fn add_sync_validator(validator: Validator) {
+        this.sync_validators.push(validator)
+    }
+
+    async fn validate(value: any) -> ValidationResult {
+        let errors: [ValidationError] = []
+
+        // 1. 동기 검증 (즉시)
+        for validator in this.sync_validators {
+            if !validator(value) {
+                errors.push(ValidationError{
+                    field: this.field_name,
+                    code: "SYNC_VALIDATION",
+                    message: "동기 검증 실패"
+                })
+            }
+        }
+
+        // 2. 동기 검증이 실패하면 비동기 검증 스킵
+        if errors.length > 0 {
+            return ValidationResult{
+                is_valid: false,
+                errors: errors
+            }
+        }
+
+        // 3. 비동기 검증 (병렬 실행)
+        let async_results = await this.validate_async_parallel(value)
+        for result in async_results {
+            if result.error != null {
+                errors.push(result.error)
+            }
+        }
+
+        return ValidationResult{
+            is_valid: errors.length == 0,
+            errors: errors
+        }
+    }
+
+    async fn validate_async_parallel(value: any) -> [AsyncValidationResult] {
+        // 모든 비동기 검증을 병렬로 실행
+        // Promise.all 스타일
+        let tasks: [AsyncValidationResult] = []
+
+        for validator in this.async_validators {
+            // 캐시 확인
+            let cache_key = (value as string)
+            if this.cache.contains(cache_key) {
+                let cached = this.cache[cache_key]
+                // 캐시 만료 확인
+                let now = __current_time_ms()
+                if (now - cached.timestamp) < this.cache_timeout {
+                    tasks.push(cached)
+                    continue
+                }
+            }
+
+            // 비동기 검증 실행
+            let start_time = __current_time_ms()
+            let result = await validator(value)
+            result.timestamp = __current_time_ms()
+            result.duration = result.timestamp - start_time
+
+            // 캐시 저장
+            this.cache[cache_key] = result
+            tasks.push(result)
+        }
+
+        return tasks
+    }
+}
+
+// ========================================
+// 일반적인 비동기 검증 함수들
+// ========================================
+
+// 1. 사용자명 중복 확인 (DB)
+async fn async_check_username_unique(username: string) -> AsyncValidationResult {
+    let start_time = __current_time_ms()
+
+    // DB 조회 (가상)
+    let exists = await db.user_exists(username)
+
+    let is_valid = !exists
+    let error = if is_valid {
+        null
+    } else {
+        ValidationError{
+            field: "username",
+            code: "USERNAME_EXISTS",
+            message: "이미 사용 중인 사용자명입니다"
+        }
+    }
+
+    return AsyncValidationResult{
+        is_valid: is_valid,
+        error: error,
+        pending: false,
+        timestamp: __current_time_ms(),
+        duration: __current_time_ms() - start_time
+    }
+}
+
+// 2. 이메일 중복 확인 (DB)
+async fn async_check_email_unique(email: string) -> AsyncValidationResult {
+    let start_time = __current_time_ms()
+
+    let exists = await db.email_exists(email)
+
+    let is_valid = !exists
+    let error = if is_valid {
+        null
+    } else {
+        ValidationError{
+            field: "email",
+            code: "EMAIL_EXISTS",
+            message: "이미 가입된 이메일입니다"
+        }
+    }
+
+    return AsyncValidationResult{
+        is_valid: is_valid,
+        error: error,
+        pending: false,
+        timestamp: __current_time_ms(),
+        duration: __current_time_ms() - start_time
+    }
+}
+
+// 3. 이메일 도메인 확인 (DNS MX 레코드)
+async fn async_check_email_domain(email: string) -> AsyncValidationResult {
+    let start_time = __current_time_ms()
+
+    let domain = email.split("@")[1]
+    let mx_records = await dns.lookup_mx(domain)
+
+    let is_valid = mx_records.length > 0
+    let error = if is_valid {
+        null
+    } else {
+        ValidationError{
+            field: "email",
+            code: "INVALID_DOMAIN",
+            message: "존재하지 않는 도메인입니다"
+        }
+    }
+
+    return AsyncValidationResult{
+        is_valid: is_valid,
+        error: error,
+        pending: false,
+        timestamp: __current_time_ms(),
+        duration: __current_time_ms() - start_time
+    }
+}
+
+// 4. API로 검증 (원격)
+async fn async_api_validate(endpoint: string, value: string) -> AsyncValidationResult {
+    let start_time = __current_time_ms()
+
+    // HTTP 요청
+    let response = await http.post(endpoint, {
+        "value": value
+    })
+
+    let result = response.body as map
+    let is_valid = result["valid"] as bool
+
+    let error = if is_valid {
+        null
+    } else {
+        ValidationError{
+            field: "unknown",
+            code: "API_VALIDATION",
+            message: result["message"] as string
+        }
+    }
+
+    return AsyncValidationResult{
+        is_valid: is_valid,
+        error: error,
+        pending: false,
+        timestamp: __current_time_ms(),
+        duration: __current_time_ms() - start_time
+    }
+}
+
+// 5. 소셜 네트워크 검증 (인증)
+async fn async_check_social_account(provider: string, account: string) -> AsyncValidationResult {
+    let start_time = __current_time_ms()
+
+    // OAuth/API 조회
+    let valid = await social.verify_account(provider, account)
+
+    let is_valid = valid
+    let error = if is_valid {
+        null
+    } else {
+        ValidationError{
+            field: "social",
+            code: "INVALID_ACCOUNT",
+            message: "존재하지 않는 계정입니다"
+        }
+    }
+
+    return AsyncValidationResult{
+        is_valid: is_valid,
+        error: error,
+        pending: false,
+        timestamp: __current_time_ms(),
+        duration: __current_time_ms() - start_time
+    }
+}
+
+// ========================================
+// 비동기 폼 검증 (UI 통합)
+// ========================================
+
+struct AsyncFormValidator {
+    fields: map<string, AsyncFieldValidator>,
+
+    async fn validate_field(field_name: string, value: any) -> ValidationResult {
+        if !this.fields.contains(field_name) {
+            return ValidationResult{
+                is_valid: true,
+                errors: []
+            }
+        }
+
+        let field_validator = this.fields[field_name]
+        return await field_validator.validate(value)
+    }
+
+    async fn validate_all(form_values: map<string, any>) -> ValidationResult {
+        let all_errors: [ValidationError] = []
+
+        for (field_name, value) in form_values {
+            let result = await this.validate_field(field_name, value)
+            for error in result.errors {
+                all_errors.push(error)
+            }
+        }
+
+        return ValidationResult{
+            is_valid: all_errors.length == 0,
+            errors: all_errors
+        }
+    }
+}
+
+// ========================================
+// UI 통합 - 실시간 검증 피드백
+// ========================================
+
+struct AsyncFormBinding {
+    form: any,
+    async_validator: AsyncFormValidator,
+    on_field_validating: fn(field_name: string)?,      // 검증 시작
+    on_field_validated: fn(field_name: string, result: ValidationResult)?,  // 검증 완료
+
+    async fn bind_field_async(field_name: string, value: any) {
+        // 1. 검증 시작 알림
+        if this.on_field_validating != null {
+            this.on_field_validating(field_name)
+        }
+
+        // 2. 비동기 검증
+        let result = await this.async_validator.validate_field(field_name, value)
+
+        // 3. 검증 완료 알림
+        if this.on_field_validated != null {
+            this.on_field_validated(field_name, result)
+        }
+
+        // 4. UI 업데이트
+        // → 상위에서 처리
+    }
+}
+
+// ========================================
+// 헬퍼 함수
+// ========================================
+
+fn __current_time_ms() -> i64 {
+    // 현재 시간 (밀리초)
+    // FreeLang 런타임에서 제공
+}
+
+// 캐시 초기화
+fn clear_async_cache(field_validator: AsyncFieldValidator) {
+    field_validator.cache = {}
+}
+
+// 캐시 통계
+fn get_cache_stats(field_validator: AsyncFieldValidator) -> map<string, any> {
+    return {
+        "size": field_validator.cache.length,
+        "timeout": field_validator.cache_timeout
+    }
+}
+
+// ========================================
+// Phase 2 체크리스트
+// ========================================
+
+// [ ] 비동기 검증 엔진 구현
+// [ ] 캐싱 및 최적화
+// [ ] 타임아웃 처리
+// [ ] 에러 복구
+// [ ] UI 피드백 통합
+// [ ] 테스트 작성

@@ -1,0 +1,205 @@
+// FreeLang Direct-Bind Form Engine
+// Example: Advanced Validators (Phase 2)
+// 정규식 및 커스텀 검증
+// 2026-03-08
+
+// ========================================
+// 1. 정규식 검증 (@match)
+// ========================================
+
+struct AdvancedForm {
+    // 전화번호: 한국 형식 (010-1234-5678)
+    @required @match("^01[0-9]-\\d{3,4}-\\d{4}$")
+    phone: string,
+
+    // 비밀번호: 강력함 (영문+숫자+특수문자, 8자+)
+    @required @min(8) @match("^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[@$!%*#?&])[A-Za-z0-9@$!%*#?&]{8,}$")
+    password: string,
+
+    // URL: 유효한 웹사이트
+    @required @match("^https?://[a-zA-Z0-9.-]+(:\\d+)?(/[a-zA-Z0-9._/?#&=-]*)?$")
+    website: string,
+
+    // IPv4: 올바른 IP 주소
+    @match("^((25[0-5]|(2[0-4]|1[0-9])?[0-9])\\.?\\b){4}$")
+    server_ip: string,
+
+    // Hex Color: #RGB or #RRGGBB
+    @match("^#([0-9a-f]{3}|[0-9a-f]{6})$")
+    theme_color: string
+}
+
+// ========================================
+// 2. 커스텀 검증 (@custom)
+// ========================================
+
+// 커스텀 검증 함수 1: 사용자명 중복 확인 (동기)
+fn is_unique_username(username: string) -> bool {
+    // DB에서 확인 (가상)
+    // return !db.username_exists(username)
+    // 테스트용 예약어 체크
+    let reserved = ["admin", "root", "system", "test", "demo"]
+    return !reserved.contains(username)
+}
+
+// 커스텀 검증 함수 2: 클라이언트 도메인 확인
+fn is_allowed_domain(email: string) -> bool {
+    // 회사 이메일만 허용 (@company.com)
+    return email.ends_with("@company.com")
+}
+
+// 커스텀 검증 함수 3: 비밀번호 강도 확인
+fn is_strong_password_custom(password: string) -> bool {
+    // 최소 요구사항:
+    // - 8자 이상
+    // - 영문, 숫자, 특수문자 포함
+    if password.length < 8 {
+        return false
+    }
+    let has_letter = password.contains_any(['a'..'z', 'A'..'Z'])
+    let has_digit = password.contains_any(['0'..'9'])
+    let has_special = password.contains_any(['@', '$', '!', '%', '*', '#', '?', '&'])
+    return has_letter && has_digit && has_special
+}
+
+struct SignupWithCustom {
+    // 사용자명: 중복 금지
+    @required @min(3) @max(20) @custom(is_unique_username)
+    username: string,
+
+    // 회사 이메일: company.com 도메인만
+    @required @email @custom(is_allowed_domain)
+    email: string,
+
+    // 비밀번호: 강력함 검증
+    @required @custom(is_strong_password_custom)
+    password: string
+}
+
+// ========================================
+// 3. 정규식 + 커스텀 조합
+// ========================================
+
+fn is_valid_credit_card_checksum(card_number: string) -> bool {
+    // Luhn 알고리즘 (신용카드 체크섬)
+    // 구현 생략 - Phase 3에서
+    return true
+}
+
+struct PaymentForm {
+    // 신용카드: 정규식 + 체크섬 검증
+    @required @match("^[0-9]{13,19}$") @custom(is_valid_credit_card_checksum)
+    card_number: string,
+
+    // CVV: 3-4 숫자
+    @required @match("^[0-9]{3,4}$")
+    cvv: string,
+
+    // 유효기간: MM/YY
+    @required @match("^(0[1-9]|1[0-2])/[0-9]{2}$")
+    expiry: string
+}
+
+// ========================================
+// 4. 다국어 오류 메시지
+// ========================================
+
+fn render_advanced_form_with_locale(locale: string = "ko") {
+    set_i18n_locale(locale)
+
+    let form = AdvancedForm()
+
+    let form_ui = UI.form(bind: form)
+        .input("phone", "tel", t("phone"))
+        .password("password", t("password"))
+        .input("website", "url", t("url"))
+        .input("server_ip", "text", t("ip"))
+        .input("theme_color", "color", t("color"))
+        .on_submit(fn() {
+            let result = form.validate()
+            if !result.is_valid {
+                // 다국어 에러 표시
+                for error in result.errors {
+                    let message = i18n.format_error(error, locale)
+                    print("[" + locale + "] " + error.field + ": " + message)
+                }
+            } else {
+                print("✅ 모든 검증 통과!")
+            }
+        })
+        .build()
+
+    print(form_ui.render())
+}
+
+// ========================================
+// 5. 사용 예시
+// ========================================
+
+fn main() {
+    print("=== Phase 2: 고급 검증 ===\n")
+
+    // 테스트 1: 정규식 검증
+    print("1️⃣ 정규식 검증\n")
+    let test_form = AdvancedForm()
+    test_form.phone = "010-1234-5678"        // ✅
+    test_form.password = "SecurePass123!"   // ✅
+    test_form.website = "https://example.com" // ✅
+    test_form.server_ip = "192.168.1.1"      // ✅
+    test_form.theme_color = "#FF5733"        // ✅
+
+    let result = test_form.validate()
+    print("정규식 검증: " + (result.is_valid ? "✅ 통과" : "❌ 실패") + "\n")
+
+    // 테스트 2: 커스텀 검증
+    print("2️⃣ 커스텀 검증\n")
+    let signup_form = SignupWithCustom()
+    signup_form.username = "john_doe"        // ✅ (미예약)
+    signup_form.email = "john@company.com"   // ✅ (company.com)
+    signup_form.password = "SecurePass123!"  // ✅ (강력)
+
+    let result2 = signup_form.validate()
+    print("커스텀 검증: " + (result2.is_valid ? "✅ 통과" : "❌ 실패") + "\n")
+
+    // 테스트 3: 다국어
+    print("3️⃣ 다국어 메시지\n")
+    render_advanced_form_with_locale("ko")
+    print("\n")
+    render_advanced_form_with_locale("en")
+    print("\n")
+    render_advanced_form_with_locale("ja")
+}
+
+// ========================================
+// 성능 테스트
+// ========================================
+
+fn benchmark_regex_validation() {
+    let form = AdvancedForm()
+    let start = __current_time_ms()
+
+    // 1000회 반복
+    for i in 0..1000 {
+        form.phone = "010-" + (i % 10000 as string) + "-5678"
+        form.validate()
+    }
+
+    let elapsed = __current_time_ms() - start
+    print("1000회 정규식 검증: " + elapsed + "ms")
+    print("평균: " + (elapsed / 1000.0) + "ms/회")
+}
+
+fn benchmark_custom_validation() {
+    let form = SignupWithCustom()
+    let start = __current_time_ms()
+
+    // 1000회 반복
+    for i in 0..1000 {
+        form.username = "user" + (i as string)
+        form.validate()
+    }
+
+    let elapsed = __current_time_ms() - start
+    print("1000회 커스텀 검증: " + elapsed + "ms")
+    print("평균: " + (elapsed / 1000.0) + "ms/회")
+}

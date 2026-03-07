@@ -1,0 +1,236 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 2: Regular Expression Engine
+// 패턴 매칭 검증
+// 2026-03-08
+
+// ========================================
+// 정규식 컴파일 & 매칭
+// ========================================
+
+struct RegexPattern {
+    pattern: string,           // 원본 패턴
+    compiled: any,             // 컴파일된 정규식 (언어 런타임)
+    flags: string = "",        // "i" = case-insensitive, "g" = global
+
+    fn new(pattern: string, flags: string = "") -> RegexPattern {
+        return RegexPattern{
+            pattern: pattern,
+            compiled: __compile_regex(pattern, flags),
+            flags: flags
+        }
+    }
+}
+
+// 정규식 컴파일 (런타임 최적화)
+fn __compile_regex(pattern: string, flags: string) -> any {
+    // FreeLang 런타임이 처리
+    // 내부적으로 캐싱됨
+}
+
+// 정규식 매칭
+fn regex_match(pattern: RegexPattern, value: string) -> bool {
+    // value가 pattern과 일치하는가?
+    // 반환: true/false
+}
+
+fn regex_test(pattern: string, value: string) -> bool {
+    // 패턴 문자열로 직접 테스트 (컴파일 + 매칭)
+    let regex = RegexPattern.new(pattern)
+    return regex_match(regex, value)
+}
+
+// 정규식 추출
+fn regex_extract(pattern: RegexPattern, value: string) -> [string]? {
+    // 매치된 그룹 반환
+    // 예: "hello 123".match(/(\d+)/) → ["123"]
+}
+
+fn regex_extract_all(pattern: RegexPattern, value: string) -> [[string]] {
+    // 모든 매치 반환 (그룹 포함)
+}
+
+// 정규식 대체
+fn regex_replace(pattern: RegexPattern, value: string, replacement: string) -> string {
+    // value에서 pattern과 일치하는 부분을 replacement로 변경
+}
+
+fn regex_replace_all(pattern: RegexPattern, value: string, replacement: string) -> string {
+    // 모든 일치 부분 변경
+}
+
+// ========================================
+// 자주 사용하는 정규식 (Built-in)
+// ========================================
+
+// Email 패턴
+let REGEX_EMAIL = RegexPattern.new(
+    "^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+)
+
+// Phone (한국)
+let REGEX_PHONE_KR = RegexPattern.new(
+    "^01[0-9]-\\d{3,4}-\\d{4}$"
+)
+
+// Phone (US)
+let REGEX_PHONE_US = RegexPattern.new(
+    "^(\\+1)?\\s*\\(?[0-9]{3}\\)?[\\s.-]?[0-9]{3}[\\s.-]?[0-9]{4}$"
+)
+
+// URL
+let REGEX_URL = RegexPattern.new(
+    "^https?://[a-zA-Z0-9.-]+(:\\d+)?(/[a-zA-Z0-9._/?#&=-]*)?$"
+)
+
+// IPv4
+let REGEX_IPV4 = RegexPattern.new(
+    "^((25[0-5]|(2[0-4]|1[0-9])?[0-9])\\.?\\b){4}$"
+)
+
+// UUID
+let REGEX_UUID = RegexPattern.new(
+    "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    "i"
+)
+
+// Hexadecimal Color (#RGB or #RRGGBB)
+let REGEX_HEX_COLOR = RegexPattern.new(
+    "^#([0-9a-f]{3}|[0-9a-f]{6})$",
+    "i"
+)
+
+// Password (숫자+문자+특수문자, 최소 8자)
+let REGEX_PASSWORD_STRONG = RegexPattern.new(
+    "^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[@$!%*#?&])[A-Za-z0-9@$!%*#?&]{8,}$"
+)
+
+// Username (알파벳, 숫자, 언더스코어, 3-20자)
+let REGEX_USERNAME = RegexPattern.new(
+    "^[a-zA-Z0-9_]{3,20}$"
+)
+
+// ========================================
+// 헬퍼 함수
+// ========================================
+
+fn is_valid_email(email: string) -> bool {
+    return regex_match(REGEX_EMAIL, email)
+}
+
+fn is_valid_phone_kr(phone: string) -> bool {
+    return regex_match(REGEX_PHONE_KR, phone)
+}
+
+fn is_valid_url(url: string) -> bool {
+    return regex_match(REGEX_URL, url)
+}
+
+fn is_valid_ipv4(ip: string) -> bool {
+    return regex_match(REGEX_IPV4, ip)
+}
+
+fn is_valid_uuid(uuid: string) -> bool {
+    return regex_match(REGEX_UUID, uuid)
+}
+
+fn is_valid_hex_color(color: string) -> bool {
+    return regex_match(REGEX_HEX_COLOR, color)
+}
+
+fn is_valid_username(username: string) -> bool {
+    return regex_match(REGEX_USERNAME, username)
+}
+
+fn is_strong_password(password: string) -> bool {
+    return regex_match(REGEX_PASSWORD_STRONG, password)
+}
+
+// ========================================
+// 정규식 빌더 (패턴 생성)
+// ========================================
+
+struct RegexBuilder {
+    pattern: string = "",
+
+    fn start_with(str: string) -> RegexBuilder {
+        this.pattern = "^" + str
+        return this
+    }
+
+    fn end_with(str: string) -> RegexBuilder {
+        this.pattern += str + "$"
+        return this
+    }
+
+    fn digit(count: int? = null) -> RegexBuilder {
+        if count != null {
+            this.pattern += "\\d{" + (count as string) + "}"
+        } else {
+            this.pattern += "\\d"
+        }
+        return this
+    }
+
+    fn char(str: string) -> RegexBuilder {
+        this.pattern += str
+        return this
+    }
+
+    fn optional(str: string) -> RegexBuilder {
+        this.pattern += "(" + str + ")?"
+        return this
+    }
+
+    fn one_or_more(str: string) -> RegexBuilder {
+        this.pattern += "(" + str + ")+"
+        return this
+    }
+
+    fn zero_or_more(str: string) -> RegexBuilder {
+        this.pattern += "(" + str + ")*"
+        return this
+    }
+
+    fn build() -> RegexPattern {
+        return RegexPattern.new(this.pattern)
+    }
+}
+
+// ========================================
+// 사용 예시
+// ========================================
+
+// 예 1: 이메일 검증
+fn validate_email_regex(email: string) -> bool {
+    return is_valid_email(email)
+}
+
+// 예 2: 전화번호 검증
+fn validate_phone(phone: string) -> bool {
+    return is_valid_phone_kr(phone)
+}
+
+// 예 3: 커스텀 정규식
+fn validate_custom_pattern(value: string, pattern: string) -> bool {
+    let regex = RegexPattern.new(pattern)
+    return regex_match(regex, value)
+}
+
+// 예 4: 정규식 빌더
+fn create_username_pattern() -> RegexPattern {
+    return RegexBuilder{}
+        .start_with("[a-zA-Z0-9_]")
+        .one_or_more("[a-zA-Z0-9_]")
+        .end_with("")
+        .build()
+}
+
+// ========================================
+// Phase 2 체크리스트
+// ========================================
+
+// [ ] 정규식 컴파일 캐싱
+// [ ] 매칭 성능 최적화
+// [ ] 더 많은 Built-in 패턴 추가
+// [ ] 정규식 빌더 API 확장
+// [ ] 문서 + 예제

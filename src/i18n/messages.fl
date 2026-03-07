@@ -1,0 +1,359 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 2: Internationalization (i18n)
+// 다국어 에러 메시지
+// 2026-03-08
+
+// ========================================
+// 메시지 저장소
+// ========================================
+
+struct I18nMessage {
+    code: string,              // "REQUIRED", "EMAIL", "MIN_LENGTH"
+    locale: string,            // "ko", "en", "ja"
+    message: string,           // 메시지 텍스트
+    params: map<string, any>?  // {min: 3, max: 20}
+}
+
+// 모든 지원 언어
+enum SupportedLocale {
+    KO = "ko",  // 한국어
+    EN = "en",  // 영어
+    JA = "ja",  // 일본어
+    ZH = "zh",  // 중국어
+    ES = "es"   // 스페인어
+}
+
+// ========================================
+// 메시지 정의 (다국어)
+// ========================================
+
+map<string, map<string, string>> MESSAGES = {
+    // 한국어 (Korean)
+    "ko": {
+        // 기본 검증
+        "required": "필수 필드입니다",
+        "email": "올바른 이메일 주소가 아닙니다",
+        "min_length": "최소 {min}자 이상이어야 합니다",
+        "max_length": "최대 {max}자 이하여야 합니다",
+        "min_value": "{min} 이상이어야 합니다",
+        "max_value": "{max} 이하여야 합니다",
+        "range": "{min}에서 {max} 사이여야 합니다",
+        "pattern": "올바른 형식이 아닙니다",
+        "phone": "올바른 전화번호가 아닙니다",
+        "url": "올바른 URL이 아닙니다",
+        "ip": "올바른 IP 주소가 아닙니다",
+        "uuid": "올바른 UUID가 아닙니다",
+        "color": "올바른 색상 형식이 아닙니다",
+        "positive": "양수만 가능합니다",
+        "integer": "정수만 가능합니다",
+        "username": "3-20자 알파벳, 숫자, 언더스코어만 사용 가능합니다",
+        "password": "8자 이상, 영문, 숫자, 특수문자를 포함해야 합니다",
+
+        // 비동기 검증
+        "username_exists": "이미 사용 중인 사용자명입니다",
+        "email_exists": "이미 가입된 이메일입니다",
+        "invalid_domain": "존재하지 않는 도메인입니다",
+        "invalid_account": "존재하지 않는 계정입니다",
+
+        // 폼 검증
+        "form_invalid": "입력 값에 오류가 있습니다",
+        "form_submitted": "제출되었습니다",
+
+        // UI 메시지
+        "loading": "검증 중...",
+        "validating": "확인 중...",
+        "error": "오류가 발생했습니다",
+        "success": "성공했습니다"
+    },
+
+    // 영어 (English)
+    "en": {
+        // 기본 검증
+        "required": "This field is required",
+        "email": "Invalid email address",
+        "min_length": "Minimum {min} characters",
+        "max_length": "Maximum {max} characters",
+        "min_value": "Must be {min} or greater",
+        "max_value": "Must be {max} or less",
+        "range": "Must be between {min} and {max}",
+        "pattern": "Invalid format",
+        "phone": "Invalid phone number",
+        "url": "Invalid URL",
+        "ip": "Invalid IP address",
+        "uuid": "Invalid UUID",
+        "color": "Invalid color format",
+        "positive": "Must be a positive number",
+        "integer": "Must be an integer",
+        "username": "3-20 characters, alphanumeric and underscore only",
+        "password": "8+ characters, must include letters, numbers, and special characters",
+
+        // 비동기 검증
+        "username_exists": "Username is already in use",
+        "email_exists": "Email is already registered",
+        "invalid_domain": "Invalid domain",
+        "invalid_account": "Account does not exist",
+
+        // 폼 검증
+        "form_invalid": "Form has validation errors",
+        "form_submitted": "Form submitted successfully",
+
+        // UI 메시지
+        "loading": "Loading...",
+        "validating": "Validating...",
+        "error": "An error occurred",
+        "success": "Success"
+    },
+
+    // 일본어 (Japanese)
+    "ja": {
+        // 기본 검증
+        "required": "必須フィールドです",
+        "email": "有効なメールアドレスではありません",
+        "min_length": "最小{min}文字以上",
+        "max_length": "最大{max}文字以下",
+        "min_value": "{min}以上である必要があります",
+        "max_value": "{max}以下である必要があります",
+        "range": "{min}から{max}の間である必要があります",
+        "pattern": "無効な形式です",
+        "phone": "無効な電話番号です",
+        "url": "無効なURLです",
+        "ip": "無効なIPアドレスです",
+        "uuid": "無効なUUIDです",
+        "color": "無効な色形式です",
+        "positive": "正の数である必要があります",
+        "integer": "整数である必要があります",
+        "username": "3-20文字、英数字とアンダースコアのみ",
+        "password": "8文字以上、文字、数字、特殊文字を含む必要があります",
+
+        // 비동기 검증
+        "username_exists": "ユーザー名は既に使用されています",
+        "email_exists": "メールアドレスは既に登録されています",
+        "invalid_domain": "無効なドメイン",
+        "invalid_account": "アカウントが見つかりません",
+
+        // 폼 검증
+        "form_invalid": "フォームに検証エラーがあります",
+        "form_submitted": "フォームが正常に送信されました",
+
+        // UI 메시지
+        "loading": "読み込み中...",
+        "validating": "検証中...",
+        "error": "エラーが発生しました",
+        "success": "成功"
+    },
+
+    // 중국어 간체 (Simplified Chinese)
+    "zh": {
+        "required": "此字段为必填项",
+        "email": "电子邮件地址无效",
+        "min_length": "最少{min}个字符",
+        "max_length": "最多{max}个字符",
+        "min_value": "必须不小于{min}",
+        "max_value": "必须不大于{max}",
+        "range": "必须在{min}到{max}之间",
+        "pattern": "格式无效",
+        "phone": "电话号码无效",
+        "url": "URL无效",
+        "ip": "IP地址无效",
+        "uuid": "UUID无效",
+        "color": "颜色格式无效",
+        "positive": "必须是正数",
+        "integer": "必须是整数",
+        "username": "3-20个字符，仅限字母数字和下划线",
+        "password": "8个以上字符，必须包含字母、数字和特殊字符",
+        "username_exists": "用户名已被使用",
+        "email_exists": "电子邮件已注册",
+        "invalid_domain": "无效域",
+        "invalid_account": "帐户不存在",
+        "form_invalid": "表单有验证错误",
+        "form_submitted": "表单已成功提交",
+        "loading": "加载中...",
+        "validating": "验证中...",
+        "error": "发生错误",
+        "success": "成功"
+    },
+
+    // 스페인어 (Spanish)
+    "es": {
+        "required": "Este campo es obligatorio",
+        "email": "Dirección de correo electrónico no válida",
+        "min_length": "Mínimo {min} caracteres",
+        "max_length": "Máximo {max} caracteres",
+        "min_value": "Debe ser {min} o mayor",
+        "max_value": "Debe ser {max} o menor",
+        "range": "Debe estar entre {min} y {max}",
+        "pattern": "Formato inválido",
+        "phone": "Número de teléfono inválido",
+        "url": "URL inválida",
+        "ip": "Dirección IP inválida",
+        "uuid": "UUID inválido",
+        "color": "Formato de color inválido",
+        "positive": "Debe ser un número positivo",
+        "integer": "Debe ser un número entero",
+        "username": "3-20 caracteres, solo alfanuméricos y guión bajo",
+        "password": "8+ caracteres, debe incluir letras, números y caracteres especiales",
+        "username_exists": "El nombre de usuario ya está en uso",
+        "email_exists": "El correo electrónico ya está registrado",
+        "invalid_domain": "Dominio inválido",
+        "invalid_account": "La cuenta no existe",
+        "form_invalid": "El formulario tiene errores de validación",
+        "form_submitted": "Formulario enviado correctamente",
+        "loading": "Cargando...",
+        "validating": "Validando...",
+        "error": "Ocurrió un error",
+        "success": "Éxito"
+    }
+}
+
+// ========================================
+// 메시지 포매터
+// ========================================
+
+struct I18nFormatter {
+    default_locale: string = "ko",
+    current_locale: string = "ko",
+
+    fn set_locale(locale: string) {
+        this.current_locale = locale
+    }
+
+    fn get_locale() -> string {
+        return this.current_locale
+    }
+
+    fn format_message(code: string, params: map<string, any>? = null) -> string {
+        return this.format_message_with_locale(code, this.current_locale, params)
+    }
+
+    fn format_message_with_locale(code: string, locale: string, params: map<string, any>? = null) -> string {
+        // 1. 메시지 템플릿 조회
+        if !MESSAGES.contains(locale) {
+            locale = this.default_locale
+        }
+
+        let messages = MESSAGES[locale]
+        if !messages.contains(code) {
+            return code  // 메시지 없으면 코드 반환
+        }
+
+        let template = messages[code]
+
+        // 2. 파라미터 치환
+        if params != null {
+            for (key, value) in params {
+                let placeholder = "{" + key + "}"
+                template = template.replace(placeholder, value as string)
+            }
+        }
+
+        return template
+    }
+
+    fn format_error(error: ValidationError, locale: string? = null) -> string {
+        if locale == null {
+            locale = this.current_locale
+        }
+
+        // 에러 코드에서 메시지 생성
+        // error.code = "MIN_LENGTH", message = "최소 {min}자..."
+        // → format_message("min_length", {"min": 3})
+
+        return this.format_message_with_locale(error.code, locale)
+    }
+
+    fn format_errors(errors: [ValidationError], locale: string? = null) -> [string] {
+        if locale == null {
+            locale = this.current_locale
+        }
+
+        let formatted: [string] = []
+        for error in errors {
+            formatted.push(this.format_error(error, locale))
+        }
+        return formatted
+    }
+
+    fn format_validation_result(result: ValidationResult, locale: string? = null) -> map<string, any> {
+        if locale == null {
+            locale = this.current_locale
+        }
+
+        return {
+            "is_valid": result.is_valid,
+            "errors": this.format_errors(result.errors, locale),
+            "message": result.is_valid ?
+                this.format_message("form_submitted", locale) :
+                this.format_message("form_invalid", locale)
+        }
+    }
+}
+
+// ========================================
+// 글로벌 i18n 인스턴스
+// ========================================
+
+let i18n = I18nFormatter{
+    default_locale: "ko",
+    current_locale: "ko"
+}
+
+// ========================================
+// 헬퍼 함수
+// ========================================
+
+fn set_i18n_locale(locale: string) {
+    i18n.set_locale(locale)
+}
+
+fn t(code: string, params: map<string, any>? = null) -> string {
+    return i18n.format_message(code, params)
+}
+
+fn t_with_locale(code: string, locale: string, params: map<string, any>? = null) -> string {
+    return i18n.format_message_with_locale(code, locale, params)
+}
+
+// ========================================
+// 사용 예시
+// ========================================
+
+// 예 1: 기본 메시지
+fn example_basic() {
+    set_i18n_locale("ko")
+    let msg = t("required")
+    print(msg)  // "필수 필드입니다"
+}
+
+// 예 2: 파라미터 포함
+fn example_with_params() {
+    set_i18n_locale("en")
+    let msg = t("min_length", {"min": 3})
+    print(msg)  // "Minimum 3 characters"
+}
+
+// 예 3: 다국어 전환
+fn example_multilang() {
+    let error = ValidationError{
+        field: "username",
+        code: "min_length",
+        message: "최소 3자"
+    }
+
+    print(i18n.format_error(error, "ko"))  // 한국어
+    print(i18n.format_error(error, "en"))  // 영어
+    print(i18n.format_error(error, "ja"))  // 일본어
+}
+
+// ========================================
+// Phase 2 체크리스트
+// ========================================
+
+// [x] 한국어 메시지
+// [x] 영어 메시지
+// [x] 일본어 메시지
+// [x] 중국어 메시지
+// [x] 스페인어 메시지
+// [ ] 더 많은 언어 추가
+// [ ] 플루럴(복수형) 지원
+// [ ] 날짜/시간 포맷팅
+// [ ] 통화 포맷팅

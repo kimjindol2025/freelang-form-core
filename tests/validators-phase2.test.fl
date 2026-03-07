@@ -1,0 +1,320 @@
+// FreeLang Direct-Bind Form Engine
+// Phase 2: Advanced Validator Tests
+// 정규식, 커스텀, i18n 테스트
+// 2026-03-08
+
+// ========================================
+// 테스트 유틸리티
+// ========================================
+
+fn assert_equal(actual: any, expected: any, message: string = "") {
+    if actual != expected {
+        print("❌ FAIL: " + message)
+        print("   Expected: " + (expected as string))
+        print("   Actual: " + (actual as string))
+        return false
+    }
+    print("✅ PASS: " + message)
+    return true
+}
+
+fn assert_true(value: bool, message: string) {
+    assert_equal(value, true, message)
+}
+
+fn assert_false(value: bool, message: string) {
+    assert_equal(value, false, message)
+}
+
+// ========================================
+// 1. 정규식 검증 테스트
+// ========================================
+
+fn test_regex_phone() {
+    print("\n【정규식 - 전화번호】\n")
+
+    // ✅ 유효
+    assert_true(regex_test("^01[0-9]-\\d{3,4}-\\d{4}$", "010-1234-5678"), "유효한 전화번호")
+    assert_true(regex_test("^01[0-9]-\\d{3,4}-\\d{4}$", "011-9999-8888"), "SKT 번호")
+    assert_true(regex_test("^01[0-9]-\\d{3,4}-\\d{4}$", "016-777-9999"), "LTE 번호")
+
+    // ❌ 무효
+    assert_false(regex_test("^01[0-9]-\\d{3,4}-\\d{4}$", "1012345678"), "하이픈 없음")
+    assert_false(regex_test("^01[0-9]-\\d{3,4}-\\d{4}$", "02-1234-5678"), "서울 지역번호")
+    assert_false(regex_test("^01[0-9]-\\d{3,4}-\\d{4}$", "010-12345"), "숫자 부족")
+}
+
+fn test_regex_password() {
+    print("\n【정규식 - 강력한 비밀번호】\n")
+
+    let pattern = "^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[@$!%*#?&])[A-Za-z0-9@$!%*#?&]{8,}$"
+
+    // ✅ 유효
+    assert_true(regex_test(pattern, "SecurePass123!"), "강력한 비밀번호 1")
+    assert_true(regex_test(pattern, "MyPassword@2025"), "강력한 비밀번호 2")
+    assert_true(regex_test(pattern, "Test#1234"), "강력한 비밀번호 3")
+
+    // ❌ 무효
+    assert_false(regex_test(pattern, "password"), "영문만 (숫자, 특수문자 없음)")
+    assert_false(regex_test(pattern, "12345678"), "숫자만")
+    assert_false(regex_test(pattern, "Pass123"), "7자 (8자 미만)")
+    assert_false(regex_test(pattern, "PassWord123"), "특수문자 없음")
+}
+
+fn test_regex_email() {
+    print("\n【정규식 - 이메일】\n")
+
+    let pattern = "^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+
+    // ✅ 유효
+    assert_true(regex_test(pattern, "user@example.com"), "기본 이메일")
+    assert_true(regex_test(pattern, "john.doe@company.co.kr"), "도메인 여러 단계")
+    assert_true(regex_test(pattern, "test+tag@domain.org"), "+ 문자")
+
+    // ❌ 무효
+    assert_false(regex_test(pattern, "invalid.email"), "@와 도메인 없음")
+    assert_false(regex_test(pattern, "user@"), "도메인 없음")
+    assert_false(regex_test(pattern, "@domain.com"), "사용자명 없음")
+}
+
+fn test_regex_url() {
+    print("\n【정규식 - URL】\n")
+
+    let pattern = "^https?://[a-zA-Z0-9.-]+(:\\d+)?(/[a-zA-Z0-9._/?#&=-]*)?$"
+
+    // ✅ 유효
+    assert_true(regex_test(pattern, "https://example.com"), "https URL")
+    assert_true(regex_test(pattern, "http://localhost:8080/path"), "포트 포함")
+    assert_true(regex_test(pattern, "https://api.github.com/users/123"), "경로 포함")
+
+    // ❌ 무효
+    assert_false(regex_test(pattern, "ftp://example.com"), "ftp 프로토콜")
+    assert_false(regex_test(pattern, "example.com"), "프로토콜 없음")
+    assert_false(regex_test(pattern, "https://"), "도메인 없음")
+}
+
+fn test_regex_ipv4() {
+    print("\n【정규식 - IPv4】\n")
+
+    let pattern = "^((25[0-5]|(2[0-4]|1[0-9])?[0-9])\\.?\\b){4}$"
+
+    // ✅ 유효
+    assert_true(regex_test(pattern, "192.168.1.1"), "로컬 IP")
+    assert_true(regex_test(pattern, "255.255.255.255"), "최대값")
+    assert_true(regex_test(pattern, "0.0.0.0"), "최소값")
+
+    // ❌ 무효
+    assert_false(regex_test(pattern, "256.1.1.1"), "범위 초과")
+    assert_false(regex_test(pattern, "192.168.1"), "3개 옥텟만")
+    assert_false(regex_test(pattern, "192.168.1.1.1"), "5개 옥텟")
+}
+
+// ========================================
+// 2. 커스텀 검증 테스트
+// ========================================
+
+fn test_custom_username_unique() {
+    print("\n【커스텀 - 중복 확인】\n")
+
+    fn is_unique(username: string) -> bool {
+        let reserved = ["admin", "root", "system"]
+        return !reserved.contains(username)
+    }
+
+    // ✅ 유효
+    assert_true(is_unique("john_doe"), "일반 사용자명")
+    assert_true(is_unique("alice2025"), "숫자 포함")
+
+    // ❌ 무효
+    assert_false(is_unique("admin"), "예약어: admin")
+    assert_false(is_unique("root"), "예약어: root")
+    assert_false(is_unique("system"), "예약어: system")
+}
+
+fn test_custom_domain_check() {
+    print("\n【커스텀 - 도메인 확인】\n")
+
+    fn is_company_domain(email: string) -> bool {
+        return email.ends_with("@company.com")
+    }
+
+    // ✅ 유효
+    assert_true(is_company_domain("john@company.com"), "회사 도메인")
+    assert_true(is_company_domain("hr@company.com"), "회사 도메인 (hr)")
+
+    // ❌ 무효
+    assert_false(is_company_domain("john@gmail.com"), "gmail")
+    assert_false(is_company_domain("john@yahoo.com"), "yahoo")
+}
+
+fn test_custom_password_strength() {
+    print("\n【커스텀 - 비밀번호 강도】\n")
+
+    fn is_strong(password: string) -> bool {
+        if password.length < 8 {
+            return false
+        }
+        // 간단한 체크
+        let has_upper = password.contains_any(['A'..'Z'])
+        let has_digit = password.contains_any(['0'..'9'])
+        return has_upper && has_digit
+    }
+
+    // ✅ 유효
+    assert_true(is_strong("SecurePass123"), "강력한 비밀번호")
+    assert_true(is_strong("MyPassword2025"), "강력한 비밀번호 2")
+
+    // ❌ 무효
+    assert_false(is_strong("weak"), "4자 (8자 미만)")
+    assert_false(is_strong("password123"), "소문자만")
+    assert_false(is_strong("PASSWORD"), "숫자 없음")
+}
+
+// ========================================
+// 3. i18n 테스트
+// ========================================
+
+fn test_i18n_basic() {
+    print("\n【i18n - 기본 메시지】\n")
+
+    set_i18n_locale("ko")
+    assert_equal(t("required"), "필수 필드입니다", "한국어 - required")
+
+    set_i18n_locale("en")
+    assert_equal(t("required"), "This field is required", "영어 - required")
+
+    set_i18n_locale("ja")
+    assert_equal(t("required"), "必須フィールドです", "일본어 - required")
+}
+
+fn test_i18n_with_params() {
+    print("\n【i18n - 파라미터 포함】\n")
+
+    set_i18n_locale("ko")
+    let msg_ko = t("min_length", {"min": 3})
+    assert_equal(msg_ko, "최소 3자 이상이어야 합니다", "한국어 - min_length(3)")
+
+    set_i18n_locale("en")
+    let msg_en = t("min_length", {"min": 5})
+    assert_equal(msg_en, "Minimum 5 characters", "영어 - min_length(5)")
+}
+
+fn test_i18n_multilang() {
+    print("\n【i18n - 다국어 지원】\n")
+
+    let locales = ["ko", "en", "ja", "zh", "es"]
+    for locale in locales {
+        set_i18n_locale(locale)
+        let msg = t("email")
+        assert_true(msg.length > 0, locale + " - email message exists")
+    }
+}
+
+// ========================================
+// 4. 통합 테스트
+// ========================================
+
+fn test_integration_regex_and_custom() {
+    print("\n【통합 - 정규식 + 커스텀】\n")
+
+    fn validate_field(value: string, pattern: string, custom_fn: fn(string) -> bool) -> bool {
+        // 1. 정규식 검증
+        if !regex_test(pattern, value) {
+            return false
+        }
+        // 2. 커스텀 검증
+        return custom_fn(value)
+    }
+
+    fn is_no_profanity(value: string) -> bool {
+        let banned = ["bad", "evil", "hate"]
+        return !banned.contains(value.to_lower())
+    }
+
+    let pattern = "^[a-zA-Z0-9_]{3,20}$"
+
+    // ✅ 통과
+    assert_true(validate_field("john_doe", pattern, is_no_profanity), "john_doe")
+
+    // ❌ 정규식 실패
+    assert_false(validate_field("a", pattern, is_no_profanity), "너무 짧음")
+
+    // ❌ 커스텀 실패
+    assert_false(validate_field("bad_user", pattern, is_no_profanity), "금지어 포함")
+}
+
+// ========================================
+// 5. 성능 테스트
+// ========================================
+
+fn test_performance_regex() {
+    print("\n【성능 - 정규식】\n")
+
+    let pattern = "^01[0-9]-\\d{3,4}-\\d{4}$"
+    let start = __current_time_ms()
+
+    for i in 0..1000 {
+        regex_test(pattern, "010-1234-5678")
+    }
+
+    let elapsed = __current_time_ms() - start
+    print("1000회 정규식 검증: " + elapsed + "ms")
+    assert_true(elapsed < 100, "성능: < 100ms (1000회)")
+}
+
+fn test_performance_custom() {
+    print("\n【성능 - 커스텀】\n")
+
+    fn is_unique(username: string) -> bool {
+        let reserved = ["admin", "root", "system", "test"]
+        return !reserved.contains(username)
+    }
+
+    let start = __current_time_ms()
+
+    for i in 0..10000 {
+        is_unique("user" + (i as string))
+    }
+
+    let elapsed = __current_time_ms() - start
+    print("10000회 커스텀 검증: " + elapsed + "ms")
+    assert_true(elapsed < 50, "성능: < 50ms (10000회)")
+}
+
+// ========================================
+// 테스트 메인
+// ========================================
+
+fn main() {
+    print("========================================")
+    print("Phase 2: 고급 검증 테스트")
+    print("========================================\n")
+
+    // 정규식 테스트
+    test_regex_phone()
+    test_regex_password()
+    test_regex_email()
+    test_regex_url()
+    test_regex_ipv4()
+
+    // 커스텀 검증 테스트
+    test_custom_username_unique()
+    test_custom_domain_check()
+    test_custom_password_strength()
+
+    // i18n 테스트
+    test_i18n_basic()
+    test_i18n_with_params()
+    test_i18n_multilang()
+
+    // 통합 테스트
+    test_integration_regex_and_custom()
+
+    // 성능 테스트
+    test_performance_regex()
+    test_performance_custom()
+
+    print("\n========================================")
+    print("✅ 모든 테스트 완료!")
+    print("========================================\n")
+}

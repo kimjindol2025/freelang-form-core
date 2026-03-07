@@ -56,6 +56,9 @@ struct FieldValidator {
             "match" => {
                 return this.check_match(constraint.value)
             }
+            "custom" => {
+                return this.check_custom(constraint.value)
+            }
             "positive" => {
                 return this.check_positive()
             }
@@ -144,7 +147,27 @@ struct FieldValidator {
     fn check_match(pattern: any) -> ValidationError? {
         let value = this.current_value as string
         let regex_pattern = pattern as string
-        // 정규식 매칭 - Phase 2에서 구현
+        // Phase 2: Regex.fl 통합
+        if !regex_test(regex_pattern, value) {
+            return ValidationError{
+                field: this.field_name,
+                code: "PATTERN",
+                message: "올바른 형식이 아닙니다"
+            }
+        }
+        return null
+    }
+
+    fn check_custom(validator_fn: any) -> ValidationError? {
+        // Phase 2: 커스텀 검증 함수
+        let result = validator_fn(this.current_value)
+        if !result {
+            return ValidationError{
+                field: this.field_name,
+                code: "CUSTOM",
+                message: "검증에 실패했습니다"
+            }
+        }
         return null
     }
 
